@@ -1,0 +1,7 @@
+# rahasia & berkas lokal - JANGAN pernah masuk repo publik
+RAHASIA-*
+*.env
+.env
+server/node_modules/
+alat/cache-foto/
+.claude/

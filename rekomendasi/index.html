@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rekomendasi Properti untuk Usaha Anda — Sewain Property Agency</title>
+<meta name="description" content="Ceritakan jenis usaha, wilayah, dan anggaran Anda. Sewain mencocokkannya dengan properti yang tersedia di Bali dan NTB, lengkap dengan alasannya.">
+<meta name="theme-color" content="#1D3125">
+<link rel="icon" href="../assets/img/ikon-32.png" sizes="32x32">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&family=Sofia+Sans+Extra+Condensed:wght@600;650;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/sewain.css">
+</head>
+<body data-akar="../">
+
+<header class="kepala">
+  <div class="wadah">
+    <a class="merek" href="../" aria-label="Sewain Property Agency — beranda">
+      <svg class="merek-tanda" viewBox="210 290 606 445" aria-hidden="true"><path fill="currentColor" d="M218 497 521 298 806 493 806 535 521 334 218 539Z M294 545 327 523 327 727 294 727Z M390 477 423 455 423 727 390 727Z M488 410 521 388 521 727 488 727Z M650 473 684 496 684 727 650 727Z"/></svg>
+      <span class="merek-garis" aria-hidden="true"></span>
+      <img class="merek-nama" src="../assets/img/wordmark-hutan.png" alt="Sewain Property Agency" width="445" height="118">
+    </a>
+    <button class="menu-buka" aria-label="Buka menu" aria-expanded="false"><span></span><span></span><span></span></button>
+    <nav class="nav" aria-label="Utama">
+      <a href="../properti/">Properti</a>
+      <a href="../rekomendasi/" aria-current="page">Rekomendasi</a>
+      <a href="../konsultasi/?jenis=titip">Titip properti</a>
+      <a class="tombol tombol--kecil" href="../konsultasi/">Jadwalkan konsultasi</a>
+    </nav>
+  </div>
+</header>
+
+<main class="pita-gelap" style="padding:clamp(40px,6vw,80px) 0">
+  <div class="wadah rek-susun">
+    <div>
+      <p class="alis alis--terang">Rekomendasi</p>
+      <h1 class="judul-1">Ceritakan usahanya.<br>Kami carikan tempatnya.</h1>
+      <p class="lead">Tulis kebutuhan Anda dengan bahasa sehari-hari, atau atur kriterianya di bawah. Setiap rekomendasi disertai alasan — dan peringatan kalau ada yang perlu Anda perhatikan.</p>
+
+      <form class="rek-form" id="form-rek" style="margin-top:28px">
+        <label class="sr" for="rek-teks">Kebutuhan Anda</label>
+        <textarea id="rek-teks" name="kebutuhan" placeholder="Contoh: saya mau buka laundry di Badung, budget sewa 40 juta per tahun, butuh listrik besar dan air."></textarea>
+        <details style="margin-top:14px" id="rinci-kriteria">
+          <summary style="cursor:pointer;font-weight:600">Atur kriteria lebih rinci</summary>
+          <div class="baris-medan" style="margin-top:14px">
+            <label class="medan"><span style="color:var(--krem)">Mau</span>
+              <select class="masukan" name="jenis"><option value="">Sewa atau beli</option><option value="sewa">Sewa</option><option value="jual">Beli</option></select></label>
+            <label class="medan"><span style="color:var(--krem)">Jenis usaha</span>
+              <select class="masukan" name="usaha"><option value="">Belum ditentukan</option><option value="kuliner">Kuliner / kafe</option><option value="retail">Toko ritel</option><option value="jasa">Jasa (salon, laundry, klinik)</option><option value="kantor">Kantor</option><option value="gudang">Gudang / logistik</option><option value="hunian">Tempat tinggal</option></select></label>
+            <label class="medan"><span style="color:var(--krem)">Wilayah</span>
+              <select class="masukan" name="kabupaten"><option value="">Di mana saja</option>
+                <optgroup label="Bali"><option value="Kota Denpasar">Denpasar</option><option value="Kabupaten Badung">Badung</option><option value="Kabupaten Gianyar">Gianyar</option><option value="Kabupaten Tabanan">Tabanan</option><option value="Kabupaten Klungkung">Klungkung</option></optgroup>
+                <optgroup label="Nusa Tenggara Barat"><option value="Kota Mataram">Mataram</option><option value="Kabupaten Lombok Barat">Lombok Barat</option><option value="Kabupaten Lombok Tengah">Lombok Tengah</option></optgroup>
+              </select></label>
+            <label class="medan"><span style="color:var(--krem)">Anggaran (juta Rp)</span>
+              <input class="masukan" name="anggaranJuta" type="number" min="1" step="1" inputmode="numeric" placeholder="mis. 80"></label>
+            <label class="medan"><span style="color:var(--krem)">Anggaran per</span>
+              <select class="masukan" name="periodeBudget"><option value="tahun">Tahun (sewa)</option><option value="bulan">Bulan (sewa)</option><option value="">Total (beli)</option></select></label>
+            <label class="medan"><span style="color:var(--krem)">Luas minimal (m²)</span>
+              <input class="masukan" name="luasMin" type="number" min="1" inputmode="numeric" placeholder="opsional"></label>
+          </div>
+          <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:15px">
+            <label><input type="checkbox" name="parkir"> Ada parkir</label>
+            <label><input type="checkbox" name="jalanUtama"> Di jalan utama</label>
+            <label><input type="checkbox" name="duaLantai"> Minimal 2 lantai</label>
+          </div>
+        </details>
+        <button class="tombol tombol--terang tombol--penuh" type="submit" style="margin-top:18px">Carikan properti</button>
+      </form>
+      <p class="rek-mesin" id="ringkas-kriteria"></p>
+    </div>
+    <div>
+      <div class="rek-hasil" id="rek-hasil" aria-live="polite">
+        <div class="rek-kosong">Hasil rekomendasi muncul di sini. Semakin lengkap Anda menulis — jenis usaha, wilayah, anggaran — semakin tepat cocokannya.</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="kaki" style="margin-top:0">
+  <div class="wadah">
+    <div class="kaki-grid">
+      <div class="kaki-merek">
+        <img src="../assets/img/wordmark-krem.png" alt="Sewain Property Agency" width="445" height="118">
+        <p>Agen sewa dan jual-beli toko, ruko, dan rumah di Bali dan Nusa Tenggara Barat.</p>
+      </div>
+      <div><h4>Properti</h4><ul><li><a href="../properti/?jenis=sewa">Disewakan</a></li><li><a href="../properti/?jenis=jual">Dijual</a></li><li><a href="../rekomendasi/">Rekomendasi</a></li></ul></div>
+      <div><h4>Layanan</h4><ul><li><a href="../konsultasi/">Jadwalkan konsultasi</a></li><li><a href="../konsultasi/?jenis=survei">Survei lokasi</a></li><li><a href="../konsultasi/?jenis=titip">Titip properti</a></li></ul></div>
+      <div><h4>Hubungi</h4><ul><li><a href="https://wa.me/6285947720369">WhatsApp +62 859-4772-0369</a></li><li><a href="https://www.instagram.com/sewaintoko.id" rel="noopener">Instagram @sewaintoko.id</a></li><li><a href="https://www.facebook.com/sewaintoko.id" rel="noopener">Facebook sewaintoko.id</a></li></ul></div>
+    </div>
+    <div class="kaki-bawah"><span>© <span data-tahun></span> Sewain Property Agency</span><a href="../pengurus/">Masuk pengurus</a></div>
+  </div>
+</footer>
+
+<script type="module" src="../assets/js/rekomendasi.js"></script>
+</body>
+</html>

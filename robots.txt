@@ -1,0 +1,3 @@
+User-agent: *
+Disallow: /sewaintoko/pengurus/
+Sitemap: https://bagusjaya0509-maker.github.io/sewaintoko/sitemap.xml

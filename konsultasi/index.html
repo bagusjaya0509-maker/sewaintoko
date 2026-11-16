@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jadwalkan Konsultasi atau Survei — Sewain Property Agency</title>
+<meta name="description" content="Pilih tanggal dan jam untuk konsultasi, survei lokasi, atau menitipkan properti Anda kepada Sewain Property Agency.">
+<meta name="theme-color" content="#1D3125">
+<link rel="icon" href="../assets/img/ikon-32.png" sizes="32x32">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&family=Sofia+Sans+Extra+Condensed:wght@600;650;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/sewain.css">
+</head>
+<body data-akar="../">
+
+<header class="kepala">
+  <div class="wadah">
+    <a class="merek" href="../" aria-label="Sewain Property Agency — beranda">
+      <svg class="merek-tanda" viewBox="210 290 606 445" aria-hidden="true"><path fill="currentColor" d="M218 497 521 298 806 493 806 535 521 334 218 539Z M294 545 327 523 327 727 294 727Z M390 477 423 455 423 727 390 727Z M488 410 521 388 521 727 488 727Z M650 473 684 496 684 727 650 727Z"/></svg>
+      <span class="merek-garis" aria-hidden="true"></span>
+      <img class="merek-nama" src="../assets/img/wordmark-hutan.png" alt="Sewain Property Agency" width="445" height="118">
+    </a>
+    <button class="menu-buka" aria-label="Buka menu" aria-expanded="false"><span></span><span></span><span></span></button>
+    <nav class="nav" aria-label="Utama">
+      <a href="../properti/">Properti</a>
+      <a href="../rekomendasi/">Rekomendasi</a>
+      <a href="../konsultasi/?jenis=titip">Titip properti</a>
+      <a class="tombol tombol--kecil" href="../konsultasi/" aria-current="page">Jadwalkan konsultasi</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="halaman-kepala">
+    <div class="wadah">
+      <p class="alis">Senin–Sabtu · 09.00–17.00 WITA</p>
+      <h1 class="judul-1">Jadwalkan pertemuan</h1>
+      <p class="lead">Pilih keperluan dan jam yang Anda mau. Agen kami mengonfirmasi lewat WhatsApp sebelum hari pertemuan.</p>
+    </div>
+  </section>
+
+  <div class="wadah" style="padding-top:clamp(24px,4vw,40px)">
+    <form id="form-jadwal" class="jadwal-susun" novalidate>
+      <div>
+        <fieldset class="langkah" style="border:1px solid var(--garis-tua)">
+          <h2><span>1</span>Keperluan</h2>
+          <div class="pilihan-kartu">
+            <div><input type="radio" name="jenis" id="j-konsultasi" value="konsultasi" checked><label for="j-konsultasi"><b>Konsultasi</b><small>Diskusi kebutuhan, anggaran, dan pilihan lokasi.</small></label></div>
+            <div><input type="radio" name="jenis" id="j-survei" value="survei"><label for="j-survei"><b>Survei lokasi</b><small>Melihat langsung properti bersama agen.</small></label></div>
+            <div><input type="radio" name="jenis" id="j-titip" value="titip"><label for="j-titip"><b>Titip properti</b><small>Saya pemilik dan ingin menyewakan atau menjual.</small></label></div>
+          </div>
+          <label class="medan" id="medan-kode" style="margin-top:14px" hidden><span>Kode properti yang ingin disurvei</span>
+            <input class="masukan" name="kode" placeholder="mis. DPS-028" maxlength="12" autocomplete="off" style="text-transform:uppercase">
+            <small>Ada di pelat setiap properti. Kosongkan kalau belum menentukan.</small></label>
+        </fieldset>
+
+        <fieldset class="langkah" style="border:1px solid var(--garis-tua)">
+          <h2><span>2</span>Tanggal &amp; jam</h2>
+          <div class="kalender-nav">
+            <button type="button" id="bulan-lalu" aria-label="Bulan sebelumnya">‹</button>
+            <span id="nama-bulan" aria-live="polite"></span>
+            <button type="button" id="bulan-depan" aria-label="Bulan berikutnya">›</button>
+          </div>
+          <div class="kalender" id="kalender" role="grid" aria-label="Pilih tanggal"></div>
+          <div class="slot" id="slot" aria-live="polite"></div>
+          <p id="ket-slot" style="font-size:14px;color:var(--lumut);margin:12px 0 0">Pilih tanggal untuk melihat jam yang masih kosong.</p>
+        </fieldset>
+      </div>
+
+      <div>
+        <fieldset class="langkah" style="border:1px solid var(--garis-tua)">
+          <h2><span>3</span>Data Anda</h2>
+          <div style="display:grid;gap:14px">
+            <label class="medan"><span>Nama lengkap</span><input class="masukan" name="nama" autocomplete="name" required></label>
+            <div class="baris-medan">
+              <label class="medan"><span>Nomor WhatsApp</span><input class="masukan" name="telepon" type="tel" inputmode="tel" autocomplete="tel" placeholder="0812xxxxxxx" required></label>
+              <label class="medan"><span>Email <small>(opsional)</small></span><input class="masukan" name="email" type="email" autocomplete="email"></label>
+            </div>
+            <label class="medan"><span>Bertemu di mana</span>
+              <select class="masukan" name="cara">
+                <option value="kantor">Di kantor Sewain</option>
+                <option value="lokasi">Langsung di lokasi properti</option>
+                <option value="online">Panggilan video</option>
+              </select></label>
+            <label class="medan"><span>Ceritakan singkat <small>(opsional)</small></span>
+              <textarea class="masukan" name="pesan" maxlength="800" placeholder="mis. Saya cari ruko untuk kafe di Denpasar, anggaran 80 juta per tahun."></textarea></label>
+            <input class="jebakan" name="situs" tabindex="-1" autocomplete="off" aria-hidden="true">
+          </div>
+        </fieldset>
+
+        <div class="langkah" style="background:transparent;border:0;padding:0;margin-top:16px">
+          <div class="ringkas-jadwal" id="ringkas">
+            <span class="alis alis--terang" style="margin:0">Ringkasan</span>
+            <span class="angka" id="ringkas-waktu">Belum memilih jam</span>
+            <span id="ringkas-jenis" style="font-size:14px;opacity:.8">Konsultasi</span>
+          </div>
+          <div class="pesan" id="pesan" role="status" style="margin-top:12px"></div>
+          <button class="tombol tombol--penuh" type="submit" style="margin-top:14px;min-height:54px">Kirim jadwal</button>
+          <p style="font-size:13px;color:var(--lumut);margin:10px 0 0">Data Anda hanya dipakai untuk menghubungi Anda soal jadwal ini.</p>
+        </div>
+      </div>
+    </form>
+    <div id="selesai" hidden></div>
+  </div>
+</main>
+
+<footer class="kaki">
+  <div class="wadah">
+    <div class="kaki-grid">
+      <div class="kaki-merek">
+        <img src="../assets/img/wordmark-krem.png" alt="Sewain Property Agency" width="445" height="118">
+        <p>Agen sewa dan jual-beli toko, ruko, dan rumah di Bali dan Nusa Tenggara Barat.</p>
+      </div>
+      <div><h4>Properti</h4><ul><li><a href="../properti/?jenis=sewa">Disewakan</a></li><li><a href="../properti/?jenis=jual">Dijual</a></li><li><a href="../rekomendasi/">Rekomendasi</a></li></ul></div>
+      <div><h4>Layanan</h4><ul><li><a href="../konsultasi/">Jadwalkan konsultasi</a></li><li><a href="../konsultasi/?jenis=survei">Survei lokasi</a></li><li><a href="../konsultasi/?jenis=titip">Titip properti</a></li></ul></div>
+      <div><h4>Hubungi</h4><ul><li><a href="https://wa.me/6285947720369">WhatsApp +62 859-4772-0369</a></li><li><a href="https://www.instagram.com/sewaintoko.id" rel="noopener">Instagram @sewaintoko.id</a></li><li><a href="https://www.facebook.com/sewaintoko.id" rel="noopener">Facebook sewaintoko.id</a></li></ul></div>
+    </div>
+    <div class="kaki-bawah"><span>© <span data-tahun></span> Sewain Property Agency</span><a href="../pengurus/">Masuk pengurus</a></div>
+  </div>
+</footer>
+
+<script type="module" src="../assets/js/konsultasi.js"></script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daftar Properti — Sewain Property Agency</title>
+<meta name="description" content="Daftar toko, ruko, rumah, dan tempat usaha yang disewakan dan dijual di Bali dan Nusa Tenggara Barat, lengkap dengan harga dan peta lokasi.">
+<meta name="theme-color" content="#1D3125">
+<link rel="icon" href="../assets/img/ikon-32.png" sizes="32x32">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&family=Sofia+Sans+Extra+Condensed:wght@600;650;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css">
+<link rel="stylesheet" href="../assets/css/sewain.css">
+</head>
+<body data-akar="../">
+
+<header class="kepala">
+  <div class="wadah">
+    <a class="merek" href="../" aria-label="Sewain Property Agency — beranda">
+      <svg class="merek-tanda" viewBox="210 290 606 445" aria-hidden="true"><path fill="currentColor" d="M218 497 521 298 806 493 806 535 521 334 218 539Z M294 545 327 523 327 727 294 727Z M390 477 423 455 423 727 390 727Z M488 410 521 388 521 727 488 727Z M650 473 684 496 684 727 650 727Z"/></svg>
+      <span class="merek-garis" aria-hidden="true"></span>
+      <img class="merek-nama" src="../assets/img/wordmark-hutan.png" alt="Sewain Property Agency" width="445" height="118">
+    </a>
+    <button class="menu-buka" aria-label="Buka menu" aria-expanded="false"><span></span><span></span><span></span></button>
+    <nav class="nav" aria-label="Utama">
+      <a href="../properti/" aria-current="page">Properti</a>
+      <a href="../rekomendasi/">Rekomendasi</a>
+      <a href="../konsultasi/?jenis=titip">Titip properti</a>
+      <a class="tombol tombol--kecil" href="../konsultasi/">Jadwalkan konsultasi</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="halaman-kepala">
+    <div class="wadah">
+      <p class="alis">Bali · Nusa Tenggara Barat</p>
+      <h1 class="judul-1" id="judul-halaman">Properti</h1>
+      <p class="lead" id="lead-halaman">Toko, ruko, rumah, dan tempat usaha yang sedang kami tawarkan.</p>
+    </div>
+  </section>
+
+  <div class="wadah">
+    <form class="saring" id="saring" aria-label="Saring properti">
+      <label class="medan"><span>Jenis</span>
+        <select class="masukan" name="jenis">
+          <option value="">Sewa &amp; jual</option>
+          <option value="sewa">Disewakan</option>
+          <option value="jual">Dijual</option>
+        </select>
+      </label>
+      <label class="medan"><span>Tipe</span>
+        <select class="masukan" name="tipe">
+          <option value="">Semua tipe</option>
+          <option value="toko,ruko">Toko &amp; ruko</option>
+          <option value="rumah">Rumah</option>
+          <option value="kontrakan">Kontrakan</option>
+          <option value="gudang">Gudang</option>
+          <option value="tanah">Tanah</option>
+          <option value="villa">Villa</option>
+          <option value="kantor">Kantor</option>
+        </select>
+      </label>
+      <label class="medan"><span>Provinsi</span>
+        <select class="masukan" name="provinsi">
+          <option value="">Bali &amp; NTB</option>
+          <option value="Bali">Bali</option>
+          <option value="Nusa Tenggara Barat">Nusa Tenggara Barat</option>
+        </select>
+      </label>
+      <label class="medan"><span>Kabupaten / kota</span>
+        <select class="masukan" name="kabupaten" id="pilih-kabupaten"><option value="">Semua</option></select>
+      </label>
+      <label class="medan"><span>Anggaran maks.</span>
+        <select class="masukan" name="maks" id="pilih-maks"></select>
+      </label>
+      <label class="medan medan--lebar"><span>Cari kode atau nama area</span>
+        <input class="masukan" type="search" name="cari" placeholder="mis. DPS-028 atau Kerobokan" autocomplete="off">
+      </label>
+    </form>
+
+    <div class="bilah-hasil">
+      <span class="jumlah" id="jumlah" aria-live="polite">Memuat properti…</span>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <label class="medan" style="flex-direction:row;align-items:center;gap:8px;display:flex"><span class="sr">Urutkan</span>
+          <select class="masukan" name="urut" form="saring" style="min-height:40px">
+            <option value="">Unggulan &amp; terbaru</option>
+            <option value="termurah">Harga terendah</option>
+            <option value="termahal">Harga tertinggi</option>
+            <option value="terbaru">Paling baru</option>
+          </select>
+        </label>
+        <div class="tampilan" role="group" aria-label="Tampilan">
+          <button type="button" data-tampil="daftar" aria-pressed="true">Daftar</button>
+          <button type="button" data-tampil="peta" aria-pressed="false">Peta</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-listing" id="grid">
+      <div class="memuat" style="height:380px"></div><div class="memuat" style="height:380px"></div><div class="memuat" style="height:380px"></div>
+    </div>
+    <div id="peta-wadah" hidden>
+      <div class="peta" id="peta" role="region" aria-label="Peta lokasi properti"></div>
+      <p class="peta-catatan">Titik bertanda harga menunjukkan <b>perkiraan area</b> properti. Lokasi persis diberikan saat survei.</p>
+    </div>
+  </div>
+</main>
+
+<footer class="kaki">
+  <div class="wadah">
+    <div class="kaki-grid">
+      <div class="kaki-merek">
+        <img src="../assets/img/wordmark-krem.png" alt="Sewain Property Agency" width="445" height="118">
+        <p>Agen sewa dan jual-beli toko, ruko, dan rumah di Bali dan Nusa Tenggara Barat.</p>
+      </div>
+      <div><h4>Properti</h4><ul><li><a href="../properti/?jenis=sewa">Disewakan</a></li><li><a href="../properti/?jenis=jual">Dijual</a></li><li><a href="../rekomendasi/">Rekomendasi</a></li></ul></div>
+      <div><h4>Layanan</h4><ul><li><a href="../konsultasi/">Jadwalkan konsultasi</a></li><li><a href="../konsultasi/?jenis=survei">Survei lokasi</a></li><li><a href="../konsultasi/?jenis=titip">Titip properti</a></li></ul></div>
+      <div><h4>Hubungi</h4><ul><li><a href="https://wa.me/6285947720369">WhatsApp +62 859-4772-0369</a></li><li><a href="https://www.instagram.com/sewaintoko.id" rel="noopener">Instagram @sewaintoko.id</a></li><li><a href="https://www.facebook.com/sewaintoko.id" rel="noopener">Facebook sewaintoko.id</a></li></ul></div>
+    </div>
+    <div class="kaki-bawah"><span>© <span data-tahun></span> Sewain Property Agency</span><a href="../pengurus/">Masuk pengurus</a></div>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<script type="module" src="../assets/js/properti.js"></script>
+</body>
+</html>

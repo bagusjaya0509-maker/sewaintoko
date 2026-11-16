@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Panel Pengurus — Sewain Property Agency</title>
+<meta name="theme-color" content="#1D3125">
+<link rel="icon" href="../assets/img/ikon-32.png" sizes="32x32">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&family=Sofia+Sans+Extra+Condensed:wght@600;650;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="../assets/css/sewain.css">
+</head>
+<body data-akar="../" class="panel">
+
+<header class="kepala">
+  <div class="wadah">
+    <a class="merek" href="../" aria-label="Lihat situs">
+      <svg class="merek-tanda" viewBox="210 290 606 445" aria-hidden="true"><path fill="currentColor" d="M218 497 521 298 806 493 806 535 521 334 218 539Z M294 545 327 523 327 727 294 727Z M390 477 423 455 423 727 390 727Z M488 410 521 388 521 727 488 727Z M650 473 684 496 684 727 650 727Z"/></svg>
+      <span class="merek-garis" aria-hidden="true"></span>
+      <img class="merek-nama" src="../assets/img/wordmark-hutan.png" alt="Sewain Property Agency" width="445" height="118">
+    </a>
+    <div id="akun-kepala" style="display:flex;gap:12px;align-items:center;font-size:14px"></div>
+  </div>
+</header>
+
+<main class="wadah" style="padding:clamp(24px,4vw,40px) 0 80px">
+
+  <!-- masuk -->
+  <section id="layar-masuk" hidden>
+    <form class="langkah" id="form-masuk" style="max-width:420px;margin:40px auto">
+      <p class="alis">Panel pengurus</p>
+      <h1 class="judul-2" style="margin-bottom:22px">Masuk</h1>
+      <div style="display:grid;gap:14px">
+        <label class="medan"><span>Email</span><input class="masukan" name="email" type="email" autocomplete="username" required></label>
+        <label class="medan"><span>Sandi</span><input class="masukan" name="sandi" type="password" autocomplete="current-password" required></label>
+        <div class="pesan" role="status"></div>
+        <button class="tombol tombol--penuh" type="submit">Masuk</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- wajib ganti sandi -->
+  <section id="layar-sandi" hidden>
+    <form class="langkah" id="form-sandi-awal" style="max-width:460px;margin:40px auto">
+      <p class="alis">Keamanan akun</p>
+      <h1 class="judul-3" style="margin-bottom:10px">Ganti sandi awal Anda</h1>
+      <p style="color:var(--lumut);margin:0 0 18px">Sandi awal hanya untuk masuk pertama kali. Buat sandi baru minimal 10 karakter.</p>
+      <div style="display:grid;gap:14px">
+        <label class="medan"><span>Sandi saat ini</span><input class="masukan" name="lama" type="password" autocomplete="current-password" required></label>
+        <label class="medan"><span>Sandi baru</span><input class="masukan" name="baru" type="password" autocomplete="new-password" minlength="10" required></label>
+        <div class="pesan" role="status"></div>
+        <button class="tombol tombol--penuh" type="submit">Simpan sandi baru</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- panel -->
+  <section id="layar-panel" hidden>
+    <div class="tab-pengurus" role="tablist">
+      <button role="tab" data-tab="listing" aria-selected="true">Listing</button>
+      <button role="tab" data-tab="jadwal" aria-selected="false">Jadwal tamu <span class="lencana" id="lencana-jadwal" hidden></span></button>
+      <button role="tab" data-tab="akun" aria-selected="false">Akun</button>
+    </div>
+
+    <div id="tab-listing">
+      <div class="bilah-hasil">
+        <input class="masukan" type="search" id="cari-listing" placeholder="Cari kode, area, atau judul" style="max-width:340px">
+        <button class="tombol" type="button" id="tambah-listing">+ Tambah listing</button>
+      </div>
+      <div class="tabel-wadah"><table class="tabel" id="tabel-listing"></table></div>
+    </div>
+
+    <div id="tab-jadwal" hidden>
+      <div class="bilah-hasil">
+        <div class="tampilan" role="group" aria-label="Saring jadwal">
+          <button type="button" data-saring-jadwal="mendatang" aria-pressed="true">Mendatang</button>
+          <button type="button" data-saring-jadwal="semua" aria-pressed="false">Semua</button>
+        </div>
+      </div>
+      <div id="daftar-jadwal"></div>
+    </div>
+
+    <div id="tab-akun" hidden>
+      <div class="jadwal-susun">
+        <form class="langkah" id="form-sandi">
+          <h2>Ganti sandi</h2>
+          <div style="display:grid;gap:14px">
+            <label class="medan"><span>Sandi saat ini</span><input class="masukan" name="lama" type="password" autocomplete="current-password" required></label>
+            <label class="medan"><span>Sandi baru (min. 10 karakter)</span><input class="masukan" name="baru" type="password" autocomplete="new-password" minlength="10" required></label>
+            <div class="pesan" role="status"></div>
+            <button class="tombol" type="submit">Simpan sandi</button>
+          </div>
+        </form>
+        <div class="langkah" id="kelola-akun" hidden>
+          <h2>Akun pengurus</h2>
+          <div id="daftar-akun" style="margin-bottom:18px"></div>
+          <form id="form-akun" style="display:grid;gap:12px">
+            <div class="baris-medan">
+              <label class="medan"><span>Nama</span><input class="masukan" name="nama" required></label>
+              <label class="medan"><span>Email</span><input class="masukan" name="email" type="email" required></label>
+            </div>
+            <div class="baris-medan">
+              <label class="medan"><span>Sandi awal (min. 10)</span><input class="masukan" name="sandi" type="text" minlength="10" required autocomplete="off"></label>
+              <label class="medan"><span>Peran</span><select class="masukan" name="peran"><option value="pengurus">Pengurus — kelola listing &amp; jadwal</option><option value="admin">Admin — juga kelola akun &amp; hapus</option></select></label>
+            </div>
+            <div class="pesan" role="status"></div>
+            <button class="tombol tombol--garis" type="submit">Tambah pengurus</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- penyunting listing -->
+  <section id="layar-sunting" hidden></section>
+</main>
+
+<dialog class="dialog" id="dialog-sosmed" aria-labelledby="judul-sosmed">
+  <form method="dialog" class="dialog-isi">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <h2 id="judul-sosmed" class="judul-3">Bahan posting</h2>
+      <button class="tombol tombol--garis tombol--kecil" value="tutup">Tutup</button>
+    </div>
+    <p style="color:var(--lumut);margin:6px 0 14px;font-size:14px">Caption disusun dari data listing. Periksa dulu sebelum diposting.</p>
+    <textarea class="masukan" id="caption-sosmed" rows="14" style="font-size:14px"></textarea>
+    <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+      <button class="tombol tombol--kecil" type="button" id="salin-caption">Salin caption</button>
+    </div>
+    <div class="foto-sosmed" id="foto-sosmed"></div>
+  </form>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script type="module" src="../assets/js/pengurus.js"></script>
+</body>
+</html>
