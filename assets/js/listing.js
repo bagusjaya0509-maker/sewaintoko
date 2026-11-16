@@ -94,6 +94,7 @@ function render(l) {
             : `<span class="harga-besar" style="font-size:34px">Hubungi kami</span><span style="font-size:14px;opacity:.75">Harga diinformasikan langsung oleh agen.</span>`}
           ${l.hargaTeks ? `<p class="harga-kutip">${esc(l.hargaTeks)}</p>` : ''}
           <a class="tombol tombol--wa tombol--penuh" href="${esc(tautanWA(pesanWA))}" target="_blank" rel="noopener">Tanya via WhatsApp</a>
+          <p class="harga-kutip" style="margin-top:8px">Sebutkan kode <b>${esc(l.kode)}</b> saat chat.</p>
         </div>
         ${tidakTersedia ? '' : `
         <form class="kotak-jadwal" id="form-survei" novalidate>

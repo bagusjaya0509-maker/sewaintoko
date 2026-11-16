@@ -30,6 +30,7 @@ const ASAL = (process.env.ASAL_DIIZINKAN || '').split(',').map(s => s.trim()).fi
 const AI_KUNCI = process.env.ANTHROPIC_API_KEY || '';
 const AI_MODEL = process.env.AI_MODEL || 'claude-haiku-5-5';
 const WA_AGEN = process.env.WA_AGEN || '6285947720369';
+const WA_LINK = process.env.WA_LINK || 'https://wa.me/message/6HMVH6NMUEAQD1';
 
 const JAM_LAYANAN = (process.env.JAM_LAYANAN || '09:00,10:00,11:00,13:00,14:00,15:00,16:00').split(',');
 const HARI_LIBUR = [0];               // 0 = Minggu
@@ -262,8 +263,10 @@ async function kodeBaru(listing, kabupaten) {
   return awalan + '-' + String(n).padStart(3, '0');
 }
 
+// Catatan internal tim (email pengunggah, status posting sosmed) tidak boleh
+// sampai ke pengunjung.
 function untukPublik(l) {
-  const { sumber, ...sisa } = l;
+  const { sumber, oleh, posting, ...sisa } = l;
   return sisa;
 }
 
@@ -627,7 +630,7 @@ function bahanSosmed(l) {
     ...butir.map(b => '• ' + b), '',
     (l.deskripsi || [])[0] ? String(l.deskripsi[0]).slice(0, 280) : '',
     '', 'Kode listing: ' + l.kode,
-    'Jadwalkan survei: wa.me/' + WA_AGEN + ' (sebutkan kode ' + l.kode + ')', '',
+    'Jadwalkan survei via WhatsApp Sewain.id (tautan di bio), sebutkan kode ' + l.kode, '',
     tag.join(' '),
   ].filter((x, i, a) => !(x === '' && a[i - 1] === '')).join('\n');
   return { kode: l.kode, judul, caption, tagar: tag, foto: l.foto || [], video: (l.video || []).map(v => v.url) };
@@ -639,7 +642,7 @@ const daftar = (metode, pola, fungsi) => rute.push({ metode, pola, fungsi });
 
 daftar('GET', /^\/api\/sehat$/, async () => ({ ok: true, waktu: new Date().toISOString(), ai: !!AI_KUNCI }));
 
-daftar('GET', /^\/api\/wilayah$/, async () => ({ wilayah: WILAYAH, tipe: TIPE, jenis: JENIS, jamLayanan: JAM_LAYANAN, wa: WA_AGEN }));
+daftar('GET', /^\/api\/wilayah$/, async () => ({ wilayah: WILAYAH, tipe: TIPE, jenis: JENIS, jamLayanan: JAM_LAYANAN, wa: WA_LINK }));
 
 daftar('GET', /^\/api\/listing$/, async ({ q }) => {
   const semua = await baca('listing', []);
@@ -674,7 +677,7 @@ daftar('GET', /^\/api\/jadwal$/, async ({ q }) => slotTanggal(String(q.tanggal |
 
 daftar('POST', /^\/api\/booking$/, async ({ req, ip }) => {
   const b = await buatBooking(await bacaBadan(req, 16 * 1024), ip);
-  return { ok: true, booking: { id: b.id, tanggal: b.tanggal, jam: b.jam, jenis: b.jenis, kode: b.kode }, wa: WA_AGEN };
+  return { ok: true, booking: { id: b.id, tanggal: b.tanggal, jam: b.jam, jenis: b.jenis, kode: b.kode }, wa: WA_LINK };
 });
 
 // --- pengurus
@@ -823,6 +826,25 @@ daftar('PATCH', /^\/api\/pengurus\/booking\/([a-f0-9]{10})$/, async ({ req, coco
   b.diubah = new Date().toISOString();
   await tulis('booking', semua);
   return { booking: b };
+});
+
+// Catatan tim: kanal mana yang sudah memuat listing ini. Disimpan terpisah
+// dari isian listing supaya "Simpan" di penyunting tidak menghapusnya.
+const KANAL_POSTING = ['instagram', 'tiktok', 'facebook', 'website'];
+daftar('PATCH', /^\/api\/pengurus\/listing\/([A-Za-z0-9-]{3,16})\/posting$/, async ({ req, cocok }) => {
+  const saya = await wajibPengurus(req);
+  const m = await bacaBadan(req, 2048);
+  if (!KANAL_POSTING.includes(m.kanal)) throw new GalatPengguna(400, 'Kanal tidak dikenali.');
+  const semua = await baca('listing', []);
+  const l = semua.find(x => x.kode === cocok[1]);
+  if (!l) throw new GalatPengguna(404, 'Listing tidak ditemukan.');
+  l.posting = Object.assign({}, l.posting);
+  if (m.sudah) {
+    const tautan = typeof m.tautan === 'string' && /^https:\/\//.test(m.tautan) && m.tautan.length < 400 ? m.tautan : null;
+    l.posting[m.kanal] = { tanggal: new Date().toISOString().slice(0, 19), oleh: saya.email, tautan };
+  } else delete l.posting[m.kanal];
+  await tulis('listing', semua);
+  return { posting: l.posting };
 });
 
 daftar('GET', /^\/api\/pengurus\/sosmed\/([A-Za-z0-9-]{3,16})$/, async ({ req, cocok }) => {

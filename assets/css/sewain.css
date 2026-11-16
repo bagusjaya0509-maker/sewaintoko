@@ -573,3 +573,11 @@ fieldset.langkah + fieldset.langkah { margin-top: 16px; }
 .kartu-jadwal-waktu small { color: var(--lumut); font-size: 13px; }
 .kartu-jadwal-aksi { display: grid; gap: 8px; min-width: 160px; }
 @media (max-width: 720px) { .kartu-jadwal { grid-template-columns: 1fr; } }
+
+/* status posting sosmed per listing (panel pengurus) */
+.kanal-posting { white-space: nowrap; }
+.chip-kanal { font-family: inherit; font-weight: 700; font-size: 12px; line-height: 1; letter-spacing: .04em; padding: 6px 8px; margin-right: 4px;
+  border: 1px dashed var(--garis-tua); border-radius: var(--sudut); background: transparent; color: var(--lumut); cursor: pointer; }
+.chip-kanal--sudah { border-style: solid; border-color: var(--hutan); background: var(--hutan); color: var(--krem); }
+.chip-kanal:focus-visible { outline: 2px solid var(--jerami); outline-offset: 2px; }
+.chip-kanal:disabled { opacity: .5; cursor: wait; }

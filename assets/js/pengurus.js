@@ -13,7 +13,11 @@ const CARA = { kantor: 'di kantor', lokasi: 'di lokasi', online: 'panggilan vide
 
 let token = '';
 try { token = localStorage.getItem('sewain.token') || ''; } catch (_) {}
-let saya = null, semuaListing = [], semuaJadwal = [], saringJadwal = 'mendatang';
+let saya = null, semuaListing = [], semuaJadwal = [], saringJadwal = 'mendatang', saringListing = 'semua';
+// Kanal sosmed yang dilacak. Facebook sengaja tidak ada: Instagram Sewain
+// meneruskan postingannya ke Facebook secara otomatis.
+const KANAL = [['instagram', 'IG', 'Instagram'], ['tiktok', 'TT', 'TikTok']];
+const belumDiposting = l => l.terbit !== false && KANAL.some(([k]) => !l.posting?.[k]);
 const $ = id => document.getElementById(id);
 
 async function panggil(jalur, opsi = {}) {
@@ -98,31 +102,58 @@ async function muatListing() {
 }
 function gambarTabel() {
   const kata = $('cari-listing').value.trim().toLowerCase();
-  const daftar = semuaListing.filter(l => !kata || [l.kode, l.judul, l.lokasi?.area, l.lokasi?.kabupaten].join(' ').toLowerCase().includes(kata));
+  const n = semuaListing.filter(belumDiposting).length;
+  $('lencana-belum').hidden = !n; $('lencana-belum').textContent = n;
+  const daftar = semuaListing
+    .filter(l => saringListing === 'semua' || (saringListing === 'draf' ? l.terbit === false : belumDiposting(l)))
+    .filter(l => !kata || [l.kode, l.judul, l.lokasi?.area, l.lokasi?.kabupaten].join(' ').toLowerCase().includes(kata));
   $('tabel-listing').innerHTML = `
-    <thead><tr><th></th><th>Kode</th><th>Properti</th><th>Harga</th><th>Status</th><th>Tayang</th><th></th></tr></thead>
+    <thead><tr><th></th><th>Kode</th><th>Properti</th><th>Harga</th><th>Status</th><th>Tayang</th><th>Sosmed</th><th></th></tr></thead>
     <tbody>${daftar.map(l => {
       const h = labelHarga(l);
       return `<tr>
         <td>${l.foto?.[0] ? `<img class="mini" src="${esc(fotoKecil(l.foto[0], 160))}" alt="" loading="lazy">` : '<span class="mini mini--kosong"></span>'}</td>
         <td><span class="plakat" style="font-size:13px">${esc(l.kode)}</span></td>
-        <td><b>${esc(l.judul)}</b><br><small>${esc(tempat(l))} · ${(l.foto || []).length} foto · ${(l.video || []).length} video</small></td>
+        <td><b>${esc(l.judul)}</b><br><small>${esc(tempat(l))} · ${(l.foto || []).length} foto · ${(l.video || []).length} video${l.oleh ? ' · diunggah ' + esc(l.oleh.split('@')[0]) : ''}</small></td>
         <td>${h.angka ? esc((h.mulai ? 'mulai ' : '') + h.angka + ' ' + h.satuan) : '<small>belum diisi</small>'}</td>
         <td><span class="status status--${esc(l.status || 'tersedia')}">${esc(STATUS[l.status || 'tersedia'])}</span></td>
         <td>${l.terbit === false ? '<small>Draf</small>' : 'Ya'}${l.unggulan ? ' · ★' : ''}</td>
+        <td class="kanal-posting">${KANAL.map(([k, singkat, nama]) => {
+          const p = l.posting?.[k];
+          return `<button type="button" class="chip-kanal${p ? ' chip-kanal--sudah' : ''}" data-kanal="${k}" data-kode="${esc(l.kode)}"
+            aria-pressed="${!!p}" title="${p ? esc(nama + ' diposting ' + p.tanggal.slice(0, 10) + ' oleh ' + p.oleh) : esc(nama + ': belum diposting. Klik bila sudah.')}">${singkat}</button>`;
+        }).join('')}</td>
         <td class="aksi">
           <button class="tombol tombol--garis tombol--kecil" data-ubah="${esc(l.kode)}">Ubah</button>
           <button class="tombol tombol--garis tombol--kecil" data-sosmed="${esc(l.kode)}">Sosmed</button>
         </td></tr>`;
-    }).join('') || '<tr><td colspan="7">Tidak ada listing yang cocok.</td></tr>'}</tbody>`;
+    }).join('') || `<tr><td colspan="8">${saringListing === 'belum' ? 'Semua listing sudah diposting.' : 'Tidak ada listing yang cocok.'}</td></tr>`}</tbody>`;
 }
 $('cari-listing').addEventListener('input', gambarTabel);
 $('tabel-listing').addEventListener('click', e => {
+  const kanal = e.target.closest('[data-kanal]');
+  if (kanal) return tandaiPosting(kanal);
   const u = e.target.closest('[data-ubah]'), s = e.target.closest('[data-sosmed]');
   if (u) bukaSunting(semuaListing.find(l => l.kode === u.dataset.ubah));
   if (s) bukaSosmed(s.dataset.sosmed);
 });
 $('tambah-listing').addEventListener('click', () => bukaSunting(null));
+document.querySelectorAll('[data-saring-listing]').forEach(b => b.addEventListener('click', () => {
+  saringListing = b.dataset.saringListing;
+  document.querySelectorAll('[data-saring-listing]').forEach(x => x.setAttribute('aria-pressed', x === b));
+  gambarTabel();
+}));
+async function tandaiPosting(tombol) {
+  const l = semuaListing.find(x => x.kode === tombol.dataset.kode);
+  const sudah = !l.posting?.[tombol.dataset.kanal];
+  tombol.disabled = true;
+  try {
+    const r = await panggil('/api/pengurus/listing/' + encodeURIComponent(l.kode) + '/posting',
+      { method: 'PATCH', json: { kanal: tombol.dataset.kanal, sudah } });
+    l.posting = r.posting;
+    gambarTabel();
+  } catch (err) { tombol.disabled = false; alert(err.message); }
+}
 
 // ---------------------------------------------------------------- bahan sosmed
 async function bukaSosmed(kode) {

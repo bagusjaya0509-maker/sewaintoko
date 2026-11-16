@@ -5,8 +5,8 @@ export const API = (() => {
   return LOKAL ? 'http://127.0.0.1:4199' : 'https://sewain.103-253-145-38.sslip.io';
 })();
 export const AKAR = document.body.dataset.akar || './';
-export const WA_AGEN = '6285947720369';
-export const WA_TAMPIL = '+62 859-4772-0369';
+export const WA_LINK = 'https://wa.me/message/6HMVH6NMUEAQD1';
+export const WA_TAMPIL = 'Sewain.id';
 
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -130,8 +130,10 @@ export const tandaLogo = () => '<svg viewBox="210 290 606 445" aria-hidden="true
 
 export const ikonPin = () => '<svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true"><path d="M6 0a5 5 0 0 0-5 5c0 3.6 5 9 5 9s5-5.4 5-9a5 5 0 0 0-5-5Zm0 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z" fill="currentColor"/></svg>';
 
-export function tautanWA(pesan) {
-  return 'https://wa.me/' + WA_AGEN + '?text=' + encodeURIComponent(pesan);
+/* Tautan pendek WhatsApp Business tidak menerima ?text=, jadi pesan isian
+   tidak bisa dibawa. Argumen dibiarkan supaya pemanggil lama tetap jalan. */
+export function tautanWA(_pesan) {
+  return WA_LINK;
 }
 
 export function tampilPesan(el, jenis, teks) {

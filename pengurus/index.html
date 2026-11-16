@@ -68,6 +68,11 @@
     <div id="tab-listing">
       <div class="bilah-hasil">
         <input class="masukan" type="search" id="cari-listing" placeholder="Cari kode, area, atau judul" style="max-width:340px">
+        <div class="tampilan" role="group" aria-label="Saring listing">
+          <button type="button" data-saring-listing="semua" aria-pressed="true">Semua</button>
+          <button type="button" data-saring-listing="belum" aria-pressed="false">Belum diposting <span class="lencana" id="lencana-belum" hidden></span></button>
+          <button type="button" data-saring-listing="draf" aria-pressed="false">Draf</button>
+        </div>
         <button class="tombol" type="button" id="tambah-listing">+ Tambah listing</button>
       </div>
       <div class="tabel-wadah"><table class="tabel" id="tabel-listing"></table></div>
