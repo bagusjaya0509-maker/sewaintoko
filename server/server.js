@@ -294,19 +294,22 @@ function saringListing(semua, q) {
 }
 
 // ---------------------------------------------------------------- rekomendasi
+// Urutan penting: jenis usaha yang spesifik dicek lebih dulu. Kata "toko",
+// "ruko", "kios" SENGAJA tidak ada di sini - itu tipe bangunan, bukan jenis
+// usaha ("toko untuk laundry" adalah usaha jasa, bukan ritel).
 const PROFIL_USAHA = [
-  { id: 'kuliner', label: 'usaha kuliner', kata: /kopi|kafe|cafe|resto|restoran|warung|makan|bakery|roti|kuliner|minuman|boba|katering|dapur/,
-    butuh: { air: true, listrikMin: 2200, jalanUtama: true, parkir: true } },
-  { id: 'retail', label: 'toko ritel', kata: /minimarket|retail|ritel|butik|fashion|baju|pakaian|apotek|toko|sembako|elektronik|handphone|hp|aksesoris|kosmetik/,
-    butuh: { jalanUtama: true, parkir: true } },
-  { id: 'jasa', label: 'usaha jasa', kata: /salon|barber|pangkas|laundry|klinik|praktik|bengkel|spa|pijat|studio|percetakan|fotokopi/,
+  { id: 'jasa', label: 'usaha jasa', kata: /\b(salon|barber|barbershop|pangkas|laundry|londri|klinik|praktik|dokter|bengkel|spa|pijat|studio|percetakan|fotokopi|servis)\b/,
     butuh: { air: true, listrikMin: 2200, kamarMandi: true } },
-  { id: 'kantor', label: 'kantor', kata: /kantor|office|agen|travel|perusahaan|konsultan|admin|cv|pt\b/,
-    butuh: { parkir: true, lantaiMin: 2 } },
-  { id: 'gudang', label: 'gudang/logistik', kata: /gudang|stok|ekspedisi|logistik|distribusi|grosir|bahan bangunan/,
+  { id: 'kuliner', label: 'usaha kuliner', kata: /\b(kopi|kafe|cafe|coffee|resto|restoran|rumah makan|warung|makan|makanan|bakery|roti|kuliner|minuman|boba|katering|dapur)\b/,
+    butuh: { air: true, listrikMin: 2200, jalanUtama: true, parkir: true } },
+  { id: 'gudang', label: 'gudang/logistik', kata: /\b(gudang|stok|ekspedisi|logistik|distribusi|grosir|bahan bangunan)\b/,
     butuh: { luasMin: 100, jalanUtama: true } },
-  { id: 'hunian', label: 'tempat tinggal', kata: /tinggal|keluarga|hunian|rumah tinggal|kos|kost/,
+  { id: 'kantor', label: 'kantor', kata: /\b(kantor|office|agen|agensi|travel|perusahaan|konsultan|notaris|startup)\b/,
+    butuh: { parkir: true, lantaiMin: 2 } },
+  { id: 'hunian', label: 'tempat tinggal', kata: /\b(tinggal|keluarga|hunian|rumah tinggal|kos|kost)\b/,
     butuh: {} },
+  { id: 'retail', label: 'toko ritel', kata: /\b(minimarket|mart|retail|ritel|butik|fashion|baju|pakaian|apotek|sembako|elektronik|handphone|ponsel|hp|aksesoris|kosmetik|jualan|dagang)\b/,
+    butuh: { jalanUtama: true, parkir: true } },
 ];
 
 const KATA_TIPE = [
