@@ -44,7 +44,7 @@ const BATAS_VIDEO = 300 * 1024 * 1024;
 const WILAYAH = {
   Bali: {
     'Kota Denpasar': 'DPS', 'Kabupaten Badung': 'BDG', 'Kabupaten Gianyar': 'GIA',
-    'Kabupaten Tabanan': 'TAB', 'Kabupaten Klungkung': 'KLK', 'Kabupaten Bangli': 'BGL',
+    'Kabupaten Tabanan': 'TBN', 'Kabupaten Klungkung': 'KLK', 'Kabupaten Bangli': 'BGL',
     'Kabupaten Karangasem': 'KRA', 'Kabupaten Buleleng': 'BLL', 'Kabupaten Jembrana': 'JBR',
   },
   'Nusa Tenggara Barat': {
@@ -284,7 +284,8 @@ const tglSah = v => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v 
 function rapikanInternal(m, lama, oleh) {
   const o = Object.assign({ pemilik: {}, penyewa: {}, catatan: null, mentah: [] }, lama || {});
   if (m.pemilik && typeof m.pemilik === 'object') {
-    o.pemilik = { nama: teks(m.pemilik.nama, 80) || null, telepon: teks(m.pemilik.telepon, 20).replace(/[^\d+]/g, '') || null,
+    // telepon boleh berisi beberapa nomor + nama, mis. "0858… (Vita) / 0878… (Nova)"
+    o.pemilik = { nama: teks(m.pemilik.nama, 80) || null, telepon: teks(m.pemilik.telepon, 160) || null,
       email: teks(m.pemilik.email, 120) || null, alamat: teks(m.pemilik.alamat, 240) || null };
   }
   if (m.penyewa && typeof m.penyewa === 'object') {
@@ -294,6 +295,20 @@ function rapikanInternal(m, lama, oleh) {
     if (o.penyewa.mulai && o.penyewa.berakhir && o.penyewa.berakhir < o.penyewa.mulai) throw new GalatPengguna(400, 'Tanggal kontrak berakhir tidak boleh sebelum tanggal mulai.');
   }
   if ('catatan' in m) o.catatan = teks(m.catatan, 2000) || null;
+  // Harga asli dari pemilik (sebelum mark-up). Harga tayang tetap di listing.harga.
+  if ('hargaPemilik' in m) o.hargaPemilik = angka(m.hargaPemilik);
+  if ('hargaPemilikPeriode' in m) o.hargaPemilikPeriode = ['tahun', 'bulan'].includes(m.hargaPemilikPeriode) ? m.hargaPemilikPeriode : null;
+  if ('hargaPemilikTeks' in m) o.hargaPemilikTeks = teks(m.hargaPemilikTeks, 600) || null;
+  if ('punyaAgen' in m) o.punyaAgen = !!m.punyaAgen;
+  if ('catatanSurvei' in m) o.catatanSurvei = teks(m.catatanSurvei, 3000) || null;
+  if (m.proses && typeof m.proses === 'object') {
+    const pilih = (v, ok) => (ok.includes(v) ? v : null);
+    o.proses = {
+      dihubungi: pilih(m.proses.dihubungi, ['belum', 'belum-dibalas', 'terhubung']),
+      video: pilih(m.proses.video, ['belum', 'sudah']),
+      izin: pilih(m.proses.izin, ['belum-jelas', 'diizinkan', 'tanpa-izin', 'ditolak']),
+    };
+  }
   if (Array.isArray(m.mentah)) {
     const sebelumnya = new Map((o.mentah || []).map(x => [x.url, x]));
     o.mentah = m.mentah.slice(0, 80).filter(x => x && typeof x.url === 'string' && /^https:\/\//.test(x.url) && x.url.length < 600).map(x => {
@@ -308,7 +323,9 @@ function rapikanInternal(m, lama, oleh) {
 async function kodeBaru(listing, kabupaten) {
   let awalan = 'SWN';
   for (const prov of Object.values(WILAYAH)) if (prov[kabupaten]) awalan = prov[kabupaten];
-  const terpakai = listing.filter(x => x.kode.startsWith(awalan + '-')).map(x => Number(x.kode.split('-')[1]) || 0);
+  // Nomor urut BERSAMA untuk semua wilayah, mengikuti buku kerja tim
+  // (DPS-001, BDG-002, ... TBN-050): awalan = wilayah, angka = urutan global.
+  const terpakai = listing.map(x => Number(String(x.kode).split('-')[1]) || 0);
   const n = (terpakai.length ? Math.max(...terpakai) : 0) + 1;
   return awalan + '-' + String(n).padStart(3, '0');
 }

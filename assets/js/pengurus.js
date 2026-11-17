@@ -1,4 +1,4 @@
-import { API, esc, fotoKecil, labelHarga, rupiahPenuh, tempat, tipeLabel, namaKab, tampilPesan, AKAR, hrefListing } from './inti.js';
+import { API, esc, fotoKecil, labelHarga, rupiahPenuh, rupiahRingkas, tempat, tipeLabel, namaKab, tampilPesan, AKAR, hrefListing } from './inti.js';
 import * as akunFb from './akun.js';
 
 const WILAYAH = {
@@ -31,7 +31,15 @@ const mentahBelum = l => (l.internal?.mentah || []).some(x => !x.diolah);
 const SARING = { semua: () => true, belum: belumDiposting, draf: l => l.terbit === false, titipan: titipanBaru, kontrak: kontrakSegera, mentah: mentahBelum };
 const KOSONG = { belum: 'Semua listing sudah diposting.', titipan: 'Tidak ada titipan yang menunggu pemeriksaan.', kontrak: 'Tidak ada kontrak yang berakhir dalam 60 hari.', mentah: 'Semua bahan mentah sudah diolah.' };
 const tglPendek = t => new Date(t + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-const waTautan = t => 'https://wa.me/' + String(t).replace(/^0/, '62').replace(/^\+/, '');
+// Kolom telepon bisa berisi beberapa nomor + nama; tautan WA memakai nomor pertama.
+const nomorPertama = t => ((String(t || '').match(/(\+?62|0)8[\d\s-]{7,16}/) || [''])[0]).replace(/[\s-]/g, '');
+const waTautan = t => 'https://wa.me/' + nomorPertama(t).replace(/^0/, '62').replace(/^\+/, '');
+const PROSES = {
+  dihubungi: { belum: 'Belum dihubungi', 'belum-dibalas': 'Belum dibalas', terhubung: 'Terhubung' },
+  video: { belum: 'Video belum diambil', sudah: 'Video sudah diambil' },
+  izin: { 'belum-jelas': 'Izin upload belum jelas', diizinkan: 'Boleh diunggah', 'tanpa-izin': 'Tanpa izin upload', ditolak: 'Pemilik menolak' },
+};
+const rpPendek = n => (n == null ? '—' : rupiahRingkas(n));
 const $ = id => document.getElementById(id);
 
 async function panggil(jalur, opsi = {}) {
@@ -166,6 +174,15 @@ function gambarTabel() {
             const h = py.berakhir ? hariKe(py.berakhir) : null;
             b.push(`<span>${l.jenis === 'jual' ? 'Pembeli' : 'Penyewa'}: <b>${esc(py.nama || '—')}</b>${py.berakhir ? ` · s.d. ${esc(tglPendek(py.berakhir))} <em class="${h <= 60 ? 'tanda-kontrak' : ''}">${h < 0 ? 'lewat ' + -h + ' hari' : h + ' hari lagi'}</em>` : ''}</span>`);
           }
+          if (i.hargaPemilik != null) {
+            const selisih = l.harga != null ? l.harga - i.hargaPemilik : null;
+            b.push(`<span>Harga pemilik: <b>${esc(rpPendek(i.hargaPemilik))}</b>${l.harga != null ? ` · tayang ${esc(rpPendek(l.harga))}` : ' · harga tayang belum diisi'}${selisih ? ` <em class="${selisih < 0 ? 'tanda-kontrak' : ''}">(${selisih > 0 ? '+' : ''}${esc(rpPendek(selisih))})</em>` : ''}</span>`);
+          } else if (i.hargaPemilikTeks) b.push(`<span>Harga pemilik: <small>${esc(i.hargaPemilikTeks.slice(0, 60))}</small></span>`);
+          const pr = i.proses || {}, tanda = [];
+          if (pr.dihubungi && pr.dihubungi !== 'terhubung') tanda.push(PROSES.dihubungi[pr.dihubungi]);
+          if (pr.izin && pr.izin !== 'diizinkan') tanda.push(PROSES.izin[pr.izin]);
+          if (i.punyaAgen) tanda.push('Punya agen');
+          if (tanda.length) b.push(`<span class="tanda-mentah">${esc(tanda.join(' · '))}</span>`);
           const m = (i.mentah || []).filter(x => !x.diolah).length;
           if (m) b.push(`<span class="tanda-mentah">${m} bahan mentah belum diolah</span>`);
           return b.join('') || '<small>Belum didata</small>';
@@ -191,6 +208,34 @@ $('tabel-listing').addEventListener('click', e => {
   if (s) bukaSosmed(s.dataset.sosmed);
 });
 $('tambah-listing').addEventListener('click', () => bukaSunting(null));
+$('unduh-excel').addEventListener('click', async () => {
+  const b = $('unduh-excel');
+  b.disabled = true; b.textContent = 'Menyiapkan…';
+  try {
+    if (!window.XLSX) await new Promise((ok, gagal) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload = ok; s.onerror = () => gagal(new Error('Pustaka Excel gagal dimuat.')); document.head.appendChild(s); });
+    const baris = semuaListing.map((l, n) => {
+      const i = l.internal || {}, pm = i.pemilik || {}, py = i.penyewa || {}, pr = i.proses || {};
+      return {
+        'No.': n + 1, 'Kode': l.kode, 'Judul': l.judul, 'Jenis': l.jenis === 'jual' ? 'Dijual' : 'Disewakan', 'Tipe': l.tipe,
+        'Wilayah': [l.lokasi?.area, namaKab(l.lokasi?.kabupaten)].filter(Boolean).join(', '), 'Alamat / plus code': pm.alamat || '',
+        'Status': STATUS[l.status || 'tersedia'], 'Tayang di situs': l.terbit === false ? 'Draf' : 'Ya',
+        'Harga tayang (Rp)': l.harga ?? '', 'Per (tayang)': l.periode || (l.jenis === 'jual' ? 'total' : ''),
+        'Harga pemilik (Rp)': i.hargaPemilik ?? '', 'Per (pemilik)': i.hargaPemilikPeriode || '', 'Mark-up (Rp)': l.harga != null && i.hargaPemilik != null ? l.harga - i.hargaPemilik : '',
+        'Catatan harga pemilik': i.hargaPemilikTeks || '', 'Pemilik': pm.nama || '', 'Nomor pemilik': pm.telepon || '', 'Punya agen': i.punyaAgen ? 'Ya' : '',
+        'Kontak': PROSES.dihubungi[pr.dihubungi] || '', 'Video': PROSES.video[pr.video] || '', 'Izin upload': PROSES.izin[pr.izin] || '',
+        'Penyewa/pembeli': py.nama || '', 'Kontrak mulai': py.mulai || '', 'Kontrak berakhir': py.berakhir || '', 'Nilai kontrak (Rp)': py.nilai ?? '',
+        'Instagram': l.posting?.instagram ? 'Sudah' : 'Belum', 'TikTok': l.posting?.tiktok ? 'Sudah' : 'Belum',
+        'Hasil kontak & survei': i.catatanSurvei || '', 'Catatan internal': i.catatan || '',
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(baris);
+    ws['!cols'] = Object.keys(baris[0] || {}).map(k => ({ wch: Math.min(Math.max(k.length + 2, 10), 40) }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Data properti');
+    XLSX.writeFile(wb, 'Data Properti Sewain ' + new Date().toISOString().slice(0, 10) + '.xlsx');
+  } catch (err) { alert(err.message); }
+  finally { b.disabled = false; b.textContent = 'Unduh Excel'; }
+});
 document.querySelectorAll('[data-saring-listing]').forEach(b => b.addEventListener('click', () => {
   saringListing = b.dataset.saringListing;
   document.querySelectorAll('[data-saring-listing]').forEach(x => x.setAttribute('aria-pressed', x === b));
@@ -343,10 +388,24 @@ function bukaSunting(l) {
           <h3 class="sub-pendataan">Pemilik</h3>
           <div class="baris-medan">
             <label class="medan"><span>Nama</span><input class="masukan" name="pmNama" maxlength="80" value="${esc(pm.nama || '')}"></label>
-            <label class="medan"><span>WhatsApp</span><input class="masukan" name="pmTelepon" inputmode="tel" value="${esc(pm.telepon || '')}" placeholder="0812xxxxxxx"></label>
+            <label class="medan"><span>WhatsApp / telepon</span><input class="masukan" name="pmTelepon" inputmode="tel" maxlength="160" value="${esc(pm.telepon || '')}" placeholder="0812xxxxxxx (bisa lebih dari satu)"></label>
             <label class="medan"><span>Email</span><input class="masukan" name="pmEmail" type="email" value="${esc(pm.email || '')}"></label>
           </div>
-          <label class="medan" style="margin-top:12px"><span>Alamat lengkap properti</span><input class="masukan" name="pmAlamat" maxlength="240" value="${esc(pm.alamat || '')}"></label>
+          <label class="medan" style="margin-top:12px"><span>Alamat lengkap / plus code</span><input class="masukan" name="pmAlamat" maxlength="240" value="${esc(pm.alamat || '')}"></label>
+          <label style="display:flex;gap:8px;margin-top:10px;font-size:14px"><input type="checkbox" name="punyaAgen" ${sunting.internal.punyaAgen ? 'checked' : ''}> Properti ini juga dipegang agen lain</label>
+          <h3 class="sub-pendataan">Harga asli pemilik (sebelum mark-up)</h3>
+          <div class="baris-medan">
+            <label class="medan"><span>Harga pemilik (Rp)</span><input class="masukan" name="hargaPemilik" type="number" min="0" step="1000000" value="${sunting.internal.hargaPemilik ?? ''}"><small id="selisih-harga"></small></label>
+            <label class="medan"><span>Per</span><select class="masukan" name="hargaPemilikPeriode">${opsi(['tahun', 'bulan', ''], sunting.internal.hargaPemilikPeriode || (sunting.jenis === 'jual' ? '' : 'tahun'), v => v ? v.charAt(0).toUpperCase() + v.slice(1) : 'Total (jual)')}</select></label>
+          </div>
+          <label class="medan" style="margin-top:12px"><span>Catatan harga dari pemilik</span><textarea class="masukan" name="hargaPemilikTeks" rows="2" maxlength="600" placeholder="mis. 60 jt per blok per tahun, bisa nego, minimal 2 tahun">${esc(sunting.internal.hargaPemilikTeks || '')}</textarea></label>
+          <h3 class="sub-pendataan">Proses dengan pemilik</h3>
+          <div class="baris-medan">
+            <label class="medan"><span>Kontak</span><select class="masukan" name="prDihubungi">${opsi(['', ...Object.keys(PROSES.dihubungi)], sunting.internal.proses?.dihubungi || '', v => v ? PROSES.dihubungi[v] : '—')}</select></label>
+            <label class="medan"><span>Video</span><select class="masukan" name="prVideo">${opsi(['', ...Object.keys(PROSES.video)], sunting.internal.proses?.video || '', v => v ? PROSES.video[v] : '—')}</select></label>
+            <label class="medan"><span>Izin upload</span><select class="masukan" name="prIzin">${opsi(['', ...Object.keys(PROSES.izin)], sunting.internal.proses?.izin || '', v => v ? PROSES.izin[v] : '—')}</select></label>
+          </div>
+          <label class="medan" style="margin-top:12px"><span>Hasil kontak &amp; survei</span><textarea class="masukan" name="catatanSurvei" rows="4" maxlength="3000">${esc(sunting.internal.catatanSurvei || '')}</textarea></label>
           <h3 class="sub-pendataan" id="judul-penyewa">${sunting.jenis === 'jual' ? 'Pembeli' : 'Penyewa saat ini'}</h3>
           <div class="baris-medan">
             <label class="medan"><span>Nama</span><input class="masukan" name="pyNama" maxlength="80" value="${esc(py.nama || '')}"></label>
@@ -394,6 +453,11 @@ function bukaSunting(l) {
   $('pilih-mentah').addEventListener('change', e => unggahMentah([...e.target.files]).finally(() => { e.target.value = ''; }));
   const sisa = () => { const v = f.pyBerakhir.value; $('sisa-kontrak').textContent = v ? (hariKe(v) < 0 ? 'Sudah lewat ' + -hariKe(v) + ' hari' : hariKe(v) + ' hari lagi') : ''; };
   f.pyBerakhir.addEventListener('input', sisa); sisa();
+  const selisih = () => {
+    const hp = Number(f.hargaPemilik.value), ht = Number(f.harga.value);
+    $('selisih-harga').textContent = hp ? rupiahPenuh(hp) + (ht ? ' · mark-up ' + (ht - hp >= 0 ? '+' : '') + rupiahPenuh(ht - hp) : ' · isi harga tayang di bagian Penawaran') : '';
+  };
+  f.hargaPemilik.addEventListener('input', selisih); f.harga.addEventListener('input', selisih); selisih();
   f.jenis.addEventListener('change', () => { $('judul-penyewa').textContent = f.jenis.value === 'jual' ? 'Pembeli' : 'Penyewa saat ini'; });
   $('tambah-fitur').onclick = () => { simpanFiturDariForm(); sunting.fitur.push({ judul: '', isi: '' }); gambarFitur(); };
   $('pilih-foto').addEventListener('change', e => unggahFoto([...e.target.files]).finally(() => { e.target.value = ''; }));
@@ -593,6 +657,12 @@ async function simpan(f, lama) {
         nilai: f.pyNilai.value === '' ? null : Number(f.pyNilai.value), catatan: f.pyCatatan.value.trim() },
       catatan: f.catatanInternal.value.trim(),
       mentah: sunting.internal.mentah,
+      hargaPemilik: f.hargaPemilik.value === '' ? null : Number(f.hargaPemilik.value),
+      hargaPemilikPeriode: f.hargaPemilikPeriode.value || null,
+      hargaPemilikTeks: f.hargaPemilikTeks.value.trim(),
+      punyaAgen: f.punyaAgen.checked,
+      catatanSurvei: f.catatanSurvei.value.trim(),
+      proses: { dihubungi: f.prDihubungi.value || null, video: f.prVideo.value || null, izin: f.prIzin.value || null },
     },
   };
   const pesan = $('pesan-sunting'), tombol = f.querySelector('[type=submit]');
