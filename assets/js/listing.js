@@ -209,7 +209,7 @@ function pasangPeta(l) {
   if (l.lokasi.presisi === 'titik') {
     L.marker(pusat, { icon: L.divIcon({ className: '', html: `<span class="penanda-harga">${esc(l.kode)}</span>`, iconSize: [0, 0] }) }).addTo(peta);
   } else {
-    L.circle(pusat, { radius: 600, color: '#A9725C', weight: 2, fillColor: '#A9725C', fillOpacity: .16 }).addTo(peta);
+    L.circle(pusat, { radius: 600, color: '#1D3125', weight: 2, fillColor: '#1D3125', fillOpacity: .14 }).addTo(peta);
   }
 }
 
