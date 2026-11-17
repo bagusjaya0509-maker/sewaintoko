@@ -478,3 +478,19 @@ body[data-pahlawan] .kepala:not(.bergulir):not(.menu-terbuka) .nav-kanan .tombol
 .nav-akun-bulat img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
 .nav-akun--foto .nav-akun-bulat { border: 0; width: 26px; height: 26px; background: none; }
 .nav-akun--foto .nav-akun-bulat::before { display: none !important; }
+
+/* panel pengurus: foto cukup besar untuk dikenali (aturan umum img max-width:100%
+   membuat sel foto diperas kolom lain sampai tinggal beberapa piksel) */
+.tabel .sel-foto { width: 152px; min-width: 152px; padding-right: 4px; }
+.tabel .mini { width: 140px; height: 105px; max-width: none; border-radius: 4px; }
+.tabel .sel-foto a { display: block; border-radius: 4px; overflow: hidden; }
+.tabel .sel-foto a:hover .mini { filter: brightness(1.06); }
+.baris-mentah { grid-template-columns: 128px 1fr auto; }
+.baris-mentah img, .mentah-video { width: 128px; height: 96px; max-width: none; }
+.foto-sosmed img { width: 150px; height: 112px; max-width: none; }
+@media (max-width: 640px) {
+  .tabel .sel-foto { width: 108px; min-width: 108px; }
+  .tabel .mini { width: 100px; height: 75px; }
+  .baris-mentah { grid-template-columns: 100px 1fr; }
+  .baris-mentah img, .mentah-video { width: 100px; height: 75px; }
+}

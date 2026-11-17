@@ -162,7 +162,7 @@ function gambarTabel() {
     <tbody>${daftar.map(l => {
       const h = labelHarga(l);
       return `<tr>
-        <td>${l.foto?.[0] ? `<img class="mini" src="${esc(fotoKecil(l.foto[0], 160))}" alt="" loading="lazy">` : '<span class="mini mini--kosong"></span>'}</td>
+        <td class="sel-foto">${l.foto?.[0] ? `<a href="${esc(l.foto[0])}" target="_blank" rel="noopener" title="Buka foto ukuran penuh"><img class="mini" src="${esc(fotoKecil(l.foto[0], 360))}" alt="Foto ${esc(l.kode)}" loading="lazy"></a>` : '<span class="mini mini--kosong"></span>'}</td>
         <td><span class="plakat" style="font-size:13px">${esc(l.kode)}</span></td>
         <td><b>${esc(l.judul)}</b><br><small>${esc(tempat(l))} · ${(l.foto || []).length} foto · ${(l.video || []).length} video${l.oleh ? ' · diunggah ' + esc(l.oleh.split('@')[0]) : ''}</small></td>
         <td>${h.angka ? esc((h.mulai ? 'mulai ' : '') + h.angka + ' ' + h.satuan) : '<small>belum diisi</small>'}</td>
