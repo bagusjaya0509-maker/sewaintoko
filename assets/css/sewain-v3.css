@@ -494,3 +494,5 @@ body[data-pahlawan] .kepala:not(.bergulir):not(.menu-terbuka) .nav-kanan .tombol
   .baris-mentah { grid-template-columns: 100px 1fr; }
   .baris-mentah img, .mentah-video { width: 100px; height: 75px; }
 }
+/* panel memakai layar lebar: tabel 9 kolom tidak lagi berdesakan di 1200px */
+body.panel .wadah, body.panel > main.wadah { width: min(100% - 2 * var(--tepi), 1720px); }
