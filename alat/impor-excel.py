@@ -73,6 +73,16 @@ def harga_dari(teks, jenis_tebakan='sewa'):
             return int(nilai), None
     return None, None
 
+POLA_HARGA = re.compile(r'\brp|\d\s*(jt|juta|miliar|milyar|million|m)\b|\d\s*(nego\s*)?(/|per)\s*(th|thn|thun|tahun)', re.I)
+
+def kalimat_harga(teks):
+    """Hanya kalimat/baris yang memuat harga — bukan seluruh catatan survei."""
+    potong = [s.strip() for s in re.split(r'\n+|(?<![Nn]o\.)(?<=[.!])\s+(?=[A-Z0-9*])', teks or '') if s.strip()]
+    tanpa_ukuran = lambda s: re.sub(r'\d+(?:[.,]\d+)?\s*(m2|m²|meter|mtr|watt|kwh|va|are|lt|lantai|unit|blok)\b', ' ',
+                                    re.sub(r'\d+(?:[.,]\d+)?\s*m?\s*[x×]\s*\d+(?:[.,]\d+)?\s*m?\b', ' ', s, flags=re.I), flags=re.I)
+    ambil = [s for s in potong if POLA_HARGA.search(tanpa_ukuran(s))]
+    return ' · '.join(ambil)[:600] or None
+
 # ---------- foto per baris (gambar mengambang di kolom B)
 def foto_per_baris(path):
     z = zipfile.ZipFile(path)
@@ -111,7 +121,7 @@ for idx, r in enumerate(ws.iter_rows(min_row=4, values_only=True), start=4):
             'pemilik': {'nama': None, 'telepon': telepon or None, 'email': None, 'alamat': alamat or None},
             'hargaPemilik': harga,
             'hargaPemilikPeriode': periode if harga else None,
-            'hargaPemilikTeks': (v[15] or '')[:600] or None,
+            'hargaPemilikTeks': kalimat_harga(info),
             'punyaAgen': bool(re.search(r'punya\s*agen', teks_semua)),
             'catatanSurvei': '\n'.join(x for x in [('Catatan toko: ' + catatan) if catatan else '', info] if x)[:3000] or None,
             'proses': {
