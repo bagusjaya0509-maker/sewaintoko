@@ -52,7 +52,8 @@ def halaman(*, judul, deskripsi, kanonik, kedalaman, isi, kepala_tambahan='', bo
 <meta property="og:description" content="{e(deskripsi)}">
 <meta property="og:image" content="{e(og)}">
 <meta property="og:url" content="{e(kanonik)}">
-<link rel="icon" href="{akar}assets/img/ikon-32.png" sizes="32x32">
+<link rel="icon" href="{akar}assets/img/ikon-32.png?v=2" sizes="32x32">
+<link rel="icon" href="{akar}assets/img/favicon.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{akar}assets/img/ikon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
