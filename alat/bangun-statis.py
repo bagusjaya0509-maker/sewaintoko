@@ -35,7 +35,7 @@ def e(s):
 # ------------------------------------------------------------------ kerangka
 def halaman(*, judul, deskripsi, kanonik, kedalaman, isi, kepala_tambahan='', body_attr='', skrip='', gambar=None, jenis='website', noindex=False):
     akar = '../' * kedalaman or './'
-    og = gambar or DOMAIN + '/assets/img/hero-kori.jpg'
+    og = gambar or DOMAIN + '/assets/img/stok/hero-atap-canggu.jpg'
     return f'''<!doctype html>
 <html lang="id">
 <head>
@@ -56,9 +56,10 @@ def halaman(*, judul, deskripsi, kanonik, kedalaman, isi, kepala_tambahan='', bo
 <link rel="apple-touch-icon" href="{akar}assets/img/ikon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&family=Sofia+Sans+Extra+Condensed:wght@600;650;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 {kepala_tambahan}<link rel="stylesheet" href="{akar}assets/css/sewain.css">
 <link rel="stylesheet" href="{akar}assets/css/sewain-v2.css">
+<link rel="stylesheet" href="{akar}assets/css/sewain-v3.css">
 </head>
 <body data-akar="{akar}"{body_attr}>
 

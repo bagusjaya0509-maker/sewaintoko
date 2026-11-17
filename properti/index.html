@@ -3,75 +3,89 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Daftar Properti — Sewain Property Agency</title>
-<meta name="description" content="Daftar toko, ruko, rumah, dan tempat usaha yang disewakan dan dijual di Bali dan Nusa Tenggara Barat, lengkap dengan harga dan peta lokasi.">
-<meta name="theme-color" content="#1D3125">
+<title>Properti Disewakan & Dijual di Bali dan NTB — Sewain</title>
+<meta name="description" content="Daftar toko, ruko, rumah, dan tempat usaha yang disewakan dan dijual di Bali dan Nusa Tenggara Barat, lengkap dengan harga, foto, dan peta lokasi.">
+<meta name="theme-color" content="#1F3428">
+<link rel="canonical" href="https://www.sewatoko.com/properti/">
 <link rel="icon" href="../assets/img/ikon-32.png" sizes="32x32">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&family=Sofia+Sans+Extra+Condensed:wght@600;650;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css">
 <link rel="stylesheet" href="../assets/css/sewain.css">
 <link rel="stylesheet" href="../assets/css/sewain-v2.css">
+<link rel="stylesheet" href="../assets/css/sewain-v3.css">
 </head>
-<body data-akar="../" data-halaman="properti">
+<body data-akar="../" data-halaman="properti" data-pahlawan>
 
 <header class="kepala" data-kerangka></header>
 
 <main>
-  <section class="halaman-kepala">
+  <section class="pahlawan pahlawan--pendek">
+    <picture class="pahlawan-foto">
+      <source media="(max-width: 699px)" srcset="../assets/img/stok/hero-atap-canggu-hp.webp" type="image/webp">
+      <source srcset="../assets/img/stok/hero-atap-canggu.webp" type="image/webp">
+      <img src="../assets/img/stok/hero-atap-canggu.jpg" alt="" width="2000" height="1125">
+    </picture>
     <div class="wadah">
-      <p class="alis">Bali · Nusa Tenggara Barat</p>
-      <h1 class="judul-1" id="judul-halaman">Properti</h1>
-      <p class="lead" id="lead-halaman">Toko, ruko, rumah, dan tempat usaha yang sedang kami tawarkan.</p>
+      <h1 id="judul-halaman">Semua properti di Bali &amp; NTB</h1>
+      <p class="sub" id="lead-halaman">Toko, ruko, rumah, dan tempat usaha yang sedang ditawarkan Sewain. Pilih jenis, lokasi, dan anggaran, lalu buka detailnya untuk melihat foto, video, dan peta.</p>
+      <form class="cari3" id="saring" aria-label="Saring properti">
+        <label><span>Saya ingin</span>
+          <select name="jenis">
+            <option value="">Sewa &amp; beli</option>
+            <option value="sewa">Sewa properti</option>
+            <option value="jual">Beli properti</option>
+          </select>
+        </label>
+        <label><span>Lokasi</span>
+          <select name="lokasi" id="pilih-lokasi"></select>
+        </label>
+        <label><span>Anggaran</span>
+          <select name="maks" id="pilih-maks"></select>
+        </label>
+        <label><span>Tipe properti</span>
+          <select name="tipe">
+            <option value="">Semua tipe</option>
+            <option value="toko,ruko">Toko &amp; ruko</option>
+            <option value="rumah">Rumah</option>
+            <option value="kontrakan">Kontrakan</option>
+            <option value="gudang">Gudang</option>
+            <option value="tanah">Tanah</option>
+            <option value="villa">Villa</option>
+            <option value="kantor">Kantor</option>
+          </select>
+        </label>
+        <button class="tombol" type="submit">Terapkan</button>
+      </form>
     </div>
   </section>
 
-  <div class="wadah">
-    <form class="saring" id="saring" aria-label="Saring properti">
-      <label class="medan"><span>Jenis</span>
-        <select class="masukan" name="jenis">
-          <option value="">Sewa &amp; jual</option>
-          <option value="sewa">Disewakan</option>
-          <option value="jual">Dijual</option>
-        </select>
-      </label>
-      <label class="medan"><span>Tipe</span>
-        <select class="masukan" name="tipe">
-          <option value="">Semua tipe</option>
-          <option value="toko,ruko">Toko &amp; ruko</option>
-          <option value="rumah">Rumah</option>
-          <option value="kontrakan">Kontrakan</option>
-          <option value="gudang">Gudang</option>
-          <option value="tanah">Tanah</option>
-          <option value="villa">Villa</option>
-          <option value="kantor">Kantor</option>
-        </select>
-      </label>
-      <label class="medan"><span>Provinsi</span>
-        <select class="masukan" name="provinsi">
-          <option value="">Bali &amp; NTB</option>
-          <option value="Bali">Bali</option>
-          <option value="Nusa Tenggara Barat">Nusa Tenggara Barat</option>
-        </select>
-      </label>
-      <label class="medan"><span>Kabupaten / kota</span>
-        <select class="masukan" name="kabupaten" id="pilih-kabupaten"><option value="">Semua</option></select>
-      </label>
-      <label class="medan"><span>Anggaran maks.</span>
-        <select class="masukan" name="maks" id="pilih-maks"></select>
-      </label>
-      <label class="medan medan--lebar"><span>Cari kode atau nama area</span>
-        <input class="masukan" type="search" name="cari" placeholder="mis. DPS-028 atau Kerobokan" autocomplete="off">
-      </label>
-    </form>
+  <nav class="chip-pita" aria-label="Saringan cepat">
+    <div class="wadah" id="chip-cepat">
+      <a href="?jenis=sewa&amp;tipe=toko,ruko">Toko &amp; ruko disewakan</a>
+      <a href="?jenis=sewa&amp;maks=50000000">Sewa &lt; Rp50 jt/tahun</a>
+      <a href="?jenis=sewa&amp;maks=100000000">Sewa &lt; Rp100 jt/tahun</a>
+      <a href="?jenis=jual">Properti dijual</a>
+      <a href="?jenis=jual&amp;tipe=rumah">Rumah dijual</a>
+      <a href="?tipe=kontrakan">Kontrakan</a>
+      <a href="?kabupaten=Kota%20Denpasar">Denpasar</a>
+      <a href="?kabupaten=Kabupaten%20Badung">Badung</a>
+      <a href="?kabupaten=Kabupaten%20Tabanan">Tabanan</a>
+      <a href="?kabupaten=Kabupaten%20Klungkung">Klungkung</a>
+    </div>
+  </nav>
 
-    <div class="bilah-hasil">
-      <span class="jumlah" id="jumlah" aria-live="polite">Memuat properti…</span>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-        <label class="medan" style="flex-direction:row;align-items:center;gap:8px;display:flex"><span class="sr">Urutkan</span>
-          <select class="masukan" name="urut" form="saring" style="min-height:40px">
+  <div class="wadah">
+    <div class="bilah-saring">
+      <div class="kiri">
+        <label class="isian-kode"><span>Kode / area</span><input type="search" name="cari" form="saring" placeholder="mis. DPS-028 atau Kerobokan" autocomplete="off"></label>
+        <span class="jumlah" id="jumlah" aria-live="polite">Memuat properti…</span>
+      </div>
+      <div class="kanan">
+        <label class="pilih-kecil"><span>Urutkan</span>
+          <select name="urut" form="saring">
             <option value="">Unggulan &amp; terbaru</option>
             <option value="termurah">Harga terendah</option>
             <option value="termahal">Harga tertinggi</option>
@@ -86,7 +100,7 @@
     </div>
 
     <div class="grid-listing" id="grid">
-      <div class="memuat" style="height:380px"></div><div class="memuat" style="height:380px"></div><div class="memuat" style="height:380px"></div>
+      <div class="memuat" style="height:360px"></div><div class="memuat" style="height:360px"></div><div class="memuat" style="height:360px"></div>
     </div>
     <div id="peta-wadah" hidden>
       <div class="peta" id="peta" role="region" aria-label="Peta lokasi properti"></div>

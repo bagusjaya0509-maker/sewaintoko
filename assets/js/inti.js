@@ -148,12 +148,13 @@ export function kartuListing(l) {
   const spek = spekRingkas(l);
   const baru = l.dibuat && Date.now() - Date.parse(l.dibuat) < 21 * 864e5;
   const lencana = [
-    `<span class="lencana-kartu ${l.jenis === 'jual' ? 'lencana-kartu--jual' : ''}">${l.jenis === 'jual' ? 'Dijual' : 'Disewakan'}</span>`,
-    l.unggulan ? '<span class="lencana-kartu lencana-kartu--terang">Pilihan agen</span>' : '',
-    baru ? '<span class="lencana-kartu lencana-kartu--terang">Baru</span>' : '',
-    (l.video || []).length ? `<span class="lencana-kartu lencana-kartu--terang">${IKON.video} Video</span>` : '',
+    l.unggulan ? '<span class="lencana-kartu">Pilihan agen</span>' : '',
+    baru ? '<span class="lencana-kartu">Baru</span>' : '',
+    `<span class="lencana-kartu lencana-kartu--gelap">${l.jenis === 'jual' ? 'Dijual' : 'Disewakan'}</span>`,
   ].join('');
+  const catatan = (l.video || []).length ? 'Ada video tur' : (l.foto || []).length > 1 ? l.foto.length + ' foto' : '';
   const alt = esc(tipeLabel(l.tipe) + ' ' + tempat(l));
+  const lokasi = [namaKab(l.lokasi?.kabupaten), l.lokasi?.area].filter(Boolean).join(' · ') || 'Bali';
   return `
   <article class="kartu" data-kode="${esc(l.kode)}">
     <div class="kartu-foto">
@@ -165,19 +166,22 @@ export function kartuListing(l) {
       <span class="karosel-titik" aria-hidden="true">${foto.map((_, i) => `<i${i ? '' : ' class="aktif"'}></i>`).join('')}</span>` : ''}`
       : `<a class="tanpa-foto" href="${href}">${tandaLogo()}<small>Foto segera menyusul</small></a>`}
       <div class="kartu-lencana">${lencana}</div>
-      <button class="hati" type="button" data-favorit="${esc(l.kode)}" aria-pressed="false" aria-label="Simpan ${esc(l.kode)} ke favorit">${IKON.hati}</button>
-      <span class="plakat">${esc(l.kode)}</span>
+      ${catatan ? `<span class="kartu-catatan-foto">${esc(catatan)}</span>` : ''}
     </div>
-    <a class="kartu-isi" href="${href}">
-      <span class="kartu-lokasi">${IKON.pin} ${esc(tempat(l) || 'Bali')} · ${esc(tipeLabel(l.tipe))}</span>
-      <h3 class="kartu-judul">${esc(l.judul)}</h3>
+    <div class="kartu-isi">
+      <div class="kartu-baris-lokasi">
+        <span class="kartu-lokasi">${IKON.pin} ${esc(lokasi)}</span>
+        <button class="hati" type="button" data-favorit="${esc(l.kode)}" aria-pressed="false" aria-label="Simpan ${esc(l.kode)} ke favorit">${IKON.hati}</button>
+      </div>
+      <a href="${href}" style="text-decoration:none"><h3 class="kartu-judul">${esc(l.judul)} ${esc(l.kode)}</h3></a>
       <span class="kartu-harga-baris">
         ${h.angka
           ? `<span class="kartu-harga">${h.mulai ? '<small>mulai </small>' : ''}${esc(h.angka)} <small>${esc(h.satuan)}</small></span>`
           : '<span class="kartu-harga kartu-harga--tanya">Harga: hubungi kami</span>'}
+        <span class="kartu-kode">${esc(l.kode)}</span>
       </span>
       ${spek.length ? `<span class="spek-ringkas">${spek.map(([i, v, t]) => `<span title="${t}">${i}<b>${esc(v)}</b></span>`).join('')}</span>` : ''}
-    </a>
+    </div>
   </article>`;
 }
 
@@ -199,40 +203,49 @@ export function tampilPesan(el, jenis, teks) {
 // semua halaman supaya menu dan tautan sosmed tidak pernah berbeda-beda.
 // =========================================================================
 const MENU = [
-  ['sewa', 'properti/?jenis=sewa', 'Disewakan'],
-  ['jual', 'properti/?jenis=jual', 'Dijual'],
-  ['rekomendasi', 'rekomendasi/', 'Rekomendasi'],
+  ['sewa', 'properti/?jenis=sewa', 'Sewa'],
+  ['jual', 'properti/?jenis=jual', 'Beli'],
   ['titip', 'titip/', 'Titip properti'],
+  ['rekomendasi', 'rekomendasi/', 'Rekomendasi'],
+  ['konsultasi', 'konsultasi/', 'Konsultasi'],
   ['artikel', 'artikel/', 'Artikel'],
   ['tentang', 'p/profile-tim.html', 'Tentang'],
 ];
+const TANDA_SVG = '<svg class="merek-tanda" viewBox="210 290 606 445" aria-hidden="true"><path fill="currentColor" d="M218 497 521 298 806 493 806 535 521 334 218 539Z M294 545 327 523 327 727 294 727Z M390 477 423 455 423 727 390 727Z M488 410 521 388 521 727 488 727Z M650 473 684 496 684 727 650 727Z"/></svg>';
 
 function pasangKepala() {
   const el = document.querySelector('header.kepala[data-kerangka]');
   if (!el) return;
   const kini = document.body.dataset.halaman || '';
+  const jenisKini = new URLSearchParams(location.search).get('jenis');
+  const aktif = id => id === kini || (kini === 'properti' && id === jenisKini);
   el.innerHTML = `
   <div class="wadah">
     <a class="merek" href="${AKAR}" aria-label="Sewain Property Agency, ke beranda">
-      <svg class="merek-tanda" viewBox="210 290 606 445" aria-hidden="true"><path fill="currentColor" d="M218 497 521 298 806 493 806 535 521 334 218 539Z M294 545 327 523 327 727 294 727Z M390 477 423 455 423 727 390 727Z M488 410 521 388 521 727 488 727Z M650 473 684 496 684 727 650 727Z"/></svg>
+      ${TANDA_SVG}
       <span class="merek-garis" aria-hidden="true"></span>
-      <img class="merek-nama" src="${AKAR}assets/img/wordmark-hutan.png" alt="Sewain Property Agency" width="445" height="118">
+      <img class="merek-nama merek-nama--gelap" src="${AKAR}assets/img/wordmark-hutan.png" alt="Sewain Property Agency" width="445" height="118">
+      <img class="merek-nama merek-nama--terang" src="${AKAR}assets/img/wordmark-krem.png" alt="" width="445" height="118">
     </a>
     <button class="menu-buka" type="button" aria-label="Buka menu" aria-expanded="false"><span></span><span></span><span></span></button>
     <nav class="nav" aria-label="Utama">
-      ${MENU.map(([id, href, label]) => `<a href="${AKAR}${href}"${id === kini ? ' aria-current="page"' : ''}>${label}</a>`).join('')}
-      <a class="nav-akun" href="${AKAR}akun/" id="nav-akun"${kini === 'akun' ? ' aria-current="page"' : ''}><span class="nav-akun-bulat" aria-hidden="true"></span><span class="nav-akun-teks">Masuk</span></a>
-      <a class="tombol tombol--kecil" href="${AKAR}konsultasi/">Jadwalkan konsultasi</a>
+      ${MENU.map(([id, href, label]) => `<a href="${AKAR}${href}"${aktif(id) ? ' aria-current="page"' : ''}>${label}</a>`).join('')}
+      <div class="nav-kanan">
+        <a class="tombol tombol--garis tombol--kecil nav-akun" href="${AKAR}akun/" id="nav-akun"><span class="nav-akun-bulat" aria-hidden="true"></span><span class="nav-akun-teks">Masuk</span></a>
+        <a class="tombol tombol--kecil" href="${WA_LINK}" target="_blank" rel="noopener">Hubungi kami</a>
+      </div>
     </nav>
   </div>`;
-  const atur = () => el.classList.toggle('bergulir', scrollY > 8);
+  const atur = () => el.classList.toggle('bergulir', scrollY > 20);
   addEventListener('scroll', atur, { passive: true }); atur();
   const tombol = el.querySelector('.menu-buka');
   tombol.addEventListener('click', () => {
     const buka = el.classList.toggle('menu-terbuka');
     tombol.setAttribute('aria-expanded', buka);
+    tombol.setAttribute('aria-label', buka ? 'Tutup menu' : 'Buka menu');
+    document.body.style.overflow = buka ? 'hidden' : '';
   });
-  el.querySelectorAll('.nav a').forEach(a => a.addEventListener('click', () => el.classList.remove('menu-terbuka')));
+  el.querySelectorAll('.nav a').forEach(a => a.addEventListener('click', () => { el.classList.remove('menu-terbuka'); document.body.style.overflow = ''; }));
 }
 
 function pasangKaki() {
@@ -249,22 +262,25 @@ function pasangKaki() {
           `<a href="${s[k].url}" target="_blank" rel="noopener" aria-label="${s[k].nama} ${esc(s[k].akun)}" title="${s[k].nama} ${esc(s[k].akun)}">${LOGO_SOSMED[k]}</a>`).join('')}</div>
       </div>
       <div><h4>Properti</h4><ul>
-        <li><a href="${AKAR}properti/?jenis=sewa">Disewakan</a></li>
-        <li><a href="${AKAR}properti/?jenis=jual">Dijual</a></li>
+        <li><a href="${AKAR}properti/?jenis=sewa">Properti disewakan</a></li>
+        <li><a href="${AKAR}properti/?jenis=jual">Properti dijual</a></li>
         <li><a href="${AKAR}properti/?tipe=toko,ruko">Toko &amp; ruko</a></li>
         <li><a href="${AKAR}properti/?tipe=rumah">Rumah</a></li>
+        <li><a href="${AKAR}titip/">Titip properti</a></li>
         <li><a href="${AKAR}rekomendasi/">Rekomendasi sesuai usaha</a></li>
       </ul></div>
-      <div><h4>Layanan</h4><ul>
-        <li><a href="${AKAR}konsultasi/">Jadwalkan konsultasi</a></li>
-        <li><a href="${AKAR}konsultasi/?jenis=survei">Survei lokasi</a></li>
-        <li><a href="${AKAR}titip/">Titip properti</a></li>
-        <li><a href="${AKAR}akun/">Akun saya</a></li>
-        <li><a href="${AKAR}artikel/">Artikel</a></li>
+      <div><h4>Wilayah</h4><ul>
+        <li><a href="${AKAR}properti/?kabupaten=Kota%20Denpasar">Denpasar</a></li>
+        <li><a href="${AKAR}properti/?kabupaten=Kabupaten%20Badung">Badung</a></li>
+        <li><a href="${AKAR}properti/?kabupaten=Kabupaten%20Tabanan">Tabanan</a></li>
+        <li><a href="${AKAR}properti/?kabupaten=Kabupaten%20Gianyar">Gianyar</a></li>
+        <li><a href="${AKAR}properti/?kabupaten=Kabupaten%20Klungkung">Klungkung</a></li>
+        <li><a href="${AKAR}properti/?provinsi=Nusa%20Tenggara%20Barat">Lombok &amp; NTB</a></li>
       </ul></div>
-      <div><h4>Hubungi</h4><ul>
-        ${['whatsapp', 'instagram', 'tiktok', 'facebook'].map(k => `<li><a href="${s[k].url}" target="_blank" rel="noopener">${s[k].nama} ${esc(s[k].akun)}</a></li>`).join('')}
+      <div><h4>Hubungi kami</h4><ul>
+        ${['instagram', 'tiktok', 'facebook'].map(k => `<li><a href="${s[k].url}" target="_blank" rel="noopener">${s[k].nama} ${esc(s[k].akun)}</a></li>`).join('')}
         <li>Senin–Sabtu, 09.00–17.00 WITA</li>
+        <li><a class="tombol tombol--wa" href="${WA_LINK}" target="_blank" rel="noopener">${LOGO_SOSMED.whatsapp.replace('<svg', '<svg width="18" height="18"')} WhatsApp kami</a></li>
       </ul></div>
     </div>
     <div class="kaki-bawah">
@@ -317,6 +333,8 @@ function tandaiFavorit(set) {
     if (b.getAttribute('aria-label') !== label) b.setAttribute('aria-label', label);
     const teks = ya ? 'Tersimpan' : 'Simpan';
     if (b.classList.contains('tombol') && b.textContent !== teks) b.textContent = teks;
+    const label2 = b.querySelector('.d-simpan span, span:not([class])');
+    if (b.classList.contains('d-simpan') && label2) { const t2 = ya ? 'Tersimpan di favorit' : 'Simpan ke favorit'; if (label2.textContent !== t2) label2.textContent = t2; }
   });
 }
 export function segarkanFavorit() { if (modAkun) modAkun.then(m => tandaiFavorit(m.favoritSaya())); }

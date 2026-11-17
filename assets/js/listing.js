@@ -1,4 +1,4 @@
-import { api, ambilSatu, ambilListing, kartuListing, esc, fotoKecil, labelHarga, rupiahPenuh, tempat, tipeLabel, namaKab, tautanWA, tampilPesan, AKAR } from './inti.js';
+import { api, ambilSatu, ambilListing, kartuListing, esc, fotoKecil, labelHarga, rupiahPenuh, tempat, tipeLabel, namaKab, tautanWA, tampilPesan, AKAR, IKON, LOGO_SOSMED } from './inti.js';
 
 const isi = document.getElementById('isi');
 const kode = document.body.dataset.kode || new URLSearchParams(location.search).get('kode');
@@ -45,78 +45,114 @@ function render(l) {
   const h = labelHarga(l);
   const foto = l.foto || [];
   const video = l.video || [];
+  const s = l.spesifikasi || {};
   const tidakTersedia = l.status && l.status !== 'tersedia';
   document.title = `${l.judul} (${l.kode}) — Sewain Property Agency`;
   document.querySelector('meta[name=description]').content =
     `${l.jenis === 'jual' ? 'Dijual' : 'Disewakan'} ${tipeLabel(l.tipe).toLowerCase()} di ${tempat(l)}${h.angka ? ', ' + (h.mulai ? 'mulai ' : '') + h.angka + ' ' + h.satuan : ''}. Kode ${l.kode}. Jadwalkan survei bersama Sewain.`;
 
   const pesanWA = `Halo Sewain, saya tertarik dengan properti ${l.kode} (${l.judul}). ${location.href}`;
+  const n = Math.min(foto.length, 3);
   const galeri = foto.length ? `
-    <div class="galeri galeri--${Math.min(foto.length, 3)}">
+    <div class="d-galeri d-galeri--${n}">
       ${foto.slice(0, 3).map((f, i) => `<button type="button" data-foto="${i}" aria-label="Lihat foto ${i + 1} dari ${foto.length}">
-        <img src="${esc(fotoKecil(f, i === 0 ? 1200 : 640))}" alt="${esc(l.judul)} — foto ${i + 1}" ${i ? 'loading="lazy"' : ''}>
-        ${i === 2 && foto.length > 3 ? `<span class="lebih">+${foto.length - 3} foto</span>` : ''}
+        <img src="${esc(fotoKecil(f, i === 0 ? 1400 : 700))}" alt="${esc(l.judul)} — foto ${i + 1}" ${i ? 'loading="lazy"' : 'fetchpriority="high"'}>
+        ${i === n - 1 && foto.length > 3 ? `<span class="lebih">Lihat ${foto.length - 3} foto lagi</span>` : ''}
       </button>`).join('')}
     </div>` : '';
 
+  const statistik = [[l.kode, 'Kode properti'], [l.jenis === 'jual' ? 'Dijual' : 'Disewakan', tipeLabel(l.tipe)]];
+  if (s.luasTanah) statistik.push([s.luasTanah + ' m²', 'Luas tanah']);
+  if (s.luasBangunan) statistik.push([s.luasBangunan + ' m²', 'Luas bangunan']);
+  else if (s.dimensi) statistik.push([s.dimensi, 'Ukuran']);
+  if (s.lantai) statistik.push([s.lantai, 'Jumlah lantai']);
+  if (s.kamarTidur) statistik.push([s.kamarTidur, 'Kamar tidur']);
+  if (s.listrikWatt && statistik.length < 6) statistik.push([s.listrikWatt.toLocaleString('id-ID') + ' W', 'Daya listrik']);
+
+  const fasilitas = [];
+  if (s.luasTanah) fasilitas.push(['Luas tanah', s.luasTanah + ' m²']);
+  if (s.luasBangunan) fasilitas.push(['Luas bangunan', s.luasBangunan + ' m²']);
+  if (s.dimensi) fasilitas.push(['Ukuran', s.dimensi]);
+  if (s.lantai) fasilitas.push(['Jumlah lantai', s.lantai]);
+  if (s.kamarTidur) fasilitas.push(['Kamar tidur', s.kamarTidur]);
+  if (s.kamarMandi) fasilitas.push(['Kamar mandi', s.kamarMandi]);
+  if (s.listrikWatt) fasilitas.push(['Listrik', s.listrikWatt.toLocaleString('id-ID') + ' watt']);
+  if ((s.air || []).length) fasilitas.push(['Sumber air', s.air.join(', ')]);
+  if ((s.legalitas || []).length) fasilitas.push(['Legalitas', s.legalitas.join(', ')]);
+  if (s.parkir) fasilitas.push(['Parkir', 'Tersedia']);
+  if (s.jalanUtama) fasilitas.push(['Akses', 'Jalan utama']);
+  if (s.furnitur) fasilitas.push(['Furnitur', 'Termasuk']);
+
+  const u = encodeURIComponent(location.href), t = encodeURIComponent(l.judul + ' (' + l.kode + ')');
+  const bagikan = [
+    ['https://www.facebook.com/sharer/sharer.php?u=' + u, 'Facebook', LOGO_SOSMED.facebook],
+    ['https://wa.me/?text=' + t + '%20' + u, 'WhatsApp', LOGO_SOSMED.whatsapp],
+  ];
+
   isi.innerHTML = `
-    <nav class="remah" aria-label="Lokasi halaman"><a href="${AKAR}">Beranda</a> / <a href="${AKAR}properti/">Properti</a> / <a href="${AKAR}properti/?kabupaten=${encodeURIComponent(l.lokasi?.kabupaten || '')}">${esc(namaKab(l.lokasi?.kabupaten))}</a> / ${esc(l.kode)}</nav>
-    <div class="detail-kepala">
+    <nav class="remah" aria-label="Lokasi halaman"><a href="${AKAR}">Beranda</a> / <a href="${AKAR}properti/?jenis=${l.jenis}">${l.jenis === 'jual' ? 'Dijual' : 'Disewakan'}</a> / <a href="${AKAR}properti/?kabupaten=${encodeURIComponent(l.lokasi?.kabupaten || '')}">${esc(namaKab(l.lokasi?.kabupaten))}</a> / ${esc(l.kode)}</nav>
+    <div class="d-kepala">
       <div>
-        <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-          <span class="plakat">${esc(l.kode)}</span>
-          <span class="kartu-jenis ${l.jenis === 'jual' ? 'kartu-jenis--jual' : ''}" style="position:static">${l.jenis === 'jual' ? 'Dijual' : 'Disewakan'}</span>
+        <button class="d-simpan" type="button" data-favorit="${esc(l.kode)}" aria-pressed="false">${IKON.hati}<span>Simpan ke favorit</span></button>
+        <h1 class="d-judul">${esc(l.judul)} ${esc(l.kode)}</h1>
+        <p class="d-lokasi">${IKON.pin} ${esc([l.lokasi?.alamat, tempat(l), l.lokasi?.provinsi].filter(Boolean).join(', '))}</p>
+        <div class="d-label">
+          <span class="lencana-kartu lencana-kartu--gelap">${l.jenis === 'jual' ? 'Dijual' : 'Disewakan'}</span>
+          ${l.unggulan ? '<span class="lencana-kartu">Pilihan agen</span>' : ''}
+          ${video.length ? '<span class="lencana-kartu">Ada video tur</span>' : ''}
           ${tidakTersedia ? `<span class="status-pita">${esc(l.status)}</span>` : ''}
         </div>
-        <h1 class="judul-1">${esc(l.judul)}</h1>
-        <p class="kartu-lokasi" style="font-size:15px;margin:12px 0 0">${esc([l.lokasi?.alamat, tempat(l), l.lokasi?.provinsi].filter(Boolean).join(', '))}</p>
       </div>
-      <div style="display:flex;gap:8px">
-        <button class="tombol tombol--garis tombol--kecil" type="button" data-favorit="${esc(l.kode)}" aria-pressed="false">Simpan</button>
-        <button class="tombol tombol--garis tombol--kecil" type="button" id="bagikan">Bagikan</button>
+      <div class="d-harga">
+        <span class="label">${l.jenis === 'jual' ? 'Harga jual' : 'Harga sewa'}</span>
+        ${h.angka ? `<span class="angka-harga">${h.mulai ? 'mulai ' : ''}${esc(rupiahPenuh(l.harga))}</span><small>${esc(h.satuan.replace(/^\/ /, 'per '))}${l.hargaTeks ? ' · ' + esc(l.hargaTeks) : ''}</small>`
+          : '<span class="angka-harga">Hubungi kami</span><small>Harga diinformasikan langsung oleh agen.</small>'}
       </div>
     </div>
     ${galeri}
-    <div class="detail-susun">
+    <div class="d-statistik">${statistik.map(([v, k]) => `<div><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join('')}</div>
+
+    <div class="d-susun">
       <div>
-        ${video.length ? `<section class="blok"><h2>Video lokasi</h2>
-          <div style="display:grid;gap:16px">${video.map(v => { const t = videoTanam(v); return `<div class="video-bingkai ${t.tegak ? 'video-bingkai--tegak' : ''}">${t.html}</div>`; }).join('')}</div>
-        </section>` : ''}
-        <section class="blok"><h2>Spesifikasi</h2>${tabelSpek(l)}</section>
-        ${(l.fitur || []).length ? `<section class="blok"><h2>Fasilitas &amp; ketentuan</h2><div class="daftar-fitur">${l.fitur.map(f => `<div><h3>${esc(f.judul)}</h3><p>${esc(f.isi)}</p></div>`).join('')}</div></section>` : ''}
-        ${(l.deskripsi || []).length ? `<section class="blok prosa"><h2>Tentang properti ini</h2>${l.deskripsi.map(p => `<p>${esc(p)}</p>`).join('')}</section>` : ''}
-        ${l.lokasi?.lat != null ? `<section class="blok"><h2>Lokasi</h2><div class="peta peta--kecil" id="peta-detail" role="region" aria-label="Peta lokasi"></div>
-          <p class="peta-catatan">${l.lokasi.presisi === 'titik' ? 'Titik menunjukkan lokasi properti.' : 'Lingkaran menunjukkan <b>perkiraan area ' + esc(l.lokasi.area || '') + '</b>. Alamat persis diberikan saat survei.'}</p></section>` : ''}
-      </div>
-      <aside class="panel-samping">
-        <div class="kotak-harga">
-          <p class="alis">${l.jenis === 'jual' ? 'Harga jual' : 'Harga sewa'}</p>
-          ${h.angka
-            ? `<span class="harga-besar">${h.mulai ? '<small>mulai </small>' : ''}${esc(h.angka)} <small>${esc(h.satuan)}</small></span>
-               <span style="font-size:14px;opacity:.75">${esc(rupiahPenuh(l.harga))}</span>`
-            : `<span class="harga-besar" style="font-size:34px">Hubungi kami</span><span style="font-size:14px;opacity:.75">Harga diinformasikan langsung oleh agen.</span>`}
-          ${l.hargaTeks ? `<p class="harga-kutip">${esc(l.hargaTeks)}</p>` : ''}
-          <a class="tombol tombol--wa tombol--penuh" href="${esc(tautanWA(pesanWA))}" target="_blank" rel="noopener">Tanya via WhatsApp</a>
-          <p class="harga-kutip" style="margin-top:8px">Sebutkan kode <b>${esc(l.kode)}</b> saat chat.</p>
+        <div class="d-bagikan"><span>Bagikan:</span>
+          ${bagikan.map(([href, nama, ik]) => `<a href="${href}" target="_blank" rel="noopener" aria-label="Bagikan ke ${nama}">${ik}</a>`).join('')}
+          <button type="button" id="bagikan" aria-label="Salin tautan"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></button>
         </div>
-        ${tidakTersedia ? '' : `
-        <form class="kotak-jadwal" id="form-survei" novalidate>
-          <h3>Jadwalkan survei</h3>
-          <div class="baris-medan">
-            <label class="medan"><span>Tanggal</span><input class="masukan" type="date" name="tanggal" required></label>
-            <label class="medan"><span>Jam (WITA)</span><select class="masukan" name="jam" required disabled><option value="">Pilih tanggal dulu</option></select></label>
-          </div>
-          <label class="medan"><span>Nama</span><input class="masukan" name="nama" autocomplete="name" required></label>
-          <label class="medan"><span>Nomor WhatsApp</span><input class="masukan" name="telepon" type="tel" inputmode="tel" autocomplete="tel" placeholder="0812xxxxxxx" required></label>
-          <input class="jebakan" name="situs" tabindex="-1" autocomplete="off" aria-hidden="true">
-          <div class="pesan" role="status"></div>
-          <button class="tombol tombol--penuh" type="submit">Kirim jadwal survei</button>
-          <small style="color:var(--lumut);font-size:12px">Agen kami mengonfirmasi lewat WhatsApp sebelum hari survei.</small>
-        </form>`}
+        ${tidakTersedia ? '' : '<a class="tombol tombol--penuh" href="#form-survei">Jadwalkan survei</a>'}
+        <p class="d-catatan">Properti ini ${l.jenis === 'jual' ? 'dijual' : 'disewakan'} melalui Sewain Property Agency. Sebutkan kode <b>${esc(l.kode)}</b> saat menghubungi agen. Lokasi persis diberikan saat survei.</p>
+        <div class="d-isi">
+          ${(l.deskripsi || []).length ? `<h2>Tentang properti ini</h2>${l.deskripsi.map(p => `<p>${esc(p)}</p>`).join('')}` : ''}
+          ${(l.fitur || []).length ? `<h2>Poin penting</h2><ul class="d-poin">${l.fitur.map(f => `<li><b>${esc(f.judul)}</b>${esc(f.isi)}</li>`).join('')}</ul>` : ''}
+          ${fasilitas.length ? `<h2>Spesifikasi &amp; fasilitas</h2><ul class="d-fitur">${fasilitas.map(([k, v]) => `<li><span>${esc(k)}</span><b>${esc(v)}</b></li>`).join('')}</ul>` : ''}
+          ${video.length ? `<h2>Video properti</h2><div style="display:grid;gap:16px">${video.map(v => { const tv = videoTanam(v); return `<div class="video-bingkai ${tv.tegak ? 'video-bingkai--tegak' : ''}">${tv.html}</div>`; }).join('')}</div>` : ''}
+          ${l.lokasi?.lat != null ? `<h2>Lokasi</h2><div class="peta peta--kecil" id="peta-detail" role="region" aria-label="Peta lokasi"></div>
+            <p class="peta-catatan">${l.lokasi.presisi === 'titik' ? 'Titik menunjukkan lokasi properti.' : 'Lingkaran menunjukkan <b>perkiraan area ' + esc(l.lokasi.area || '') + '</b>. Alamat persis diberikan saat survei.'}</p>` : ''}
+        </div>
+      </div>
+      <aside>
+        <div class="d-tanya">
+          <h3>Tanya properti ini</h3>
+          <a class="tombol tombol--wa tombol--penuh" href="${esc(tautanWA(pesanWA))}" target="_blank" rel="noopener">${LOGO_SOSMED.whatsapp.replace('<svg', '<svg width="18" height="18"')} Chat WhatsApp agen</a>
+          <small>Sebutkan kode <b>${esc(l.kode)}</b> saat chat.</small>
+          ${tidakTersedia ? '<p style="margin:0">Properti ini sudah tidak tersedia. Hubungi agen untuk pilihan serupa.</p>' : `
+          <form id="form-survei" novalidate style="display:grid;gap:10px;margin-top:6px">
+            <b style="font-size:14px">Atau jadwalkan survei</b>
+            <label class="medan"><span>Nama</span><input class="masukan" name="nama" autocomplete="name" required></label>
+            <label class="medan"><span>Nomor WhatsApp</span><input class="masukan" name="telepon" type="tel" inputmode="tel" autocomplete="tel" placeholder="0812xxxxxxx" required></label>
+            <div class="baris-medan" style="gap:10px">
+              <label class="medan"><span>Tanggal</span><input class="masukan" type="date" name="tanggal" required></label>
+              <label class="medan"><span>Jam (WITA)</span><select class="masukan" name="jam" required disabled><option value="">Pilih tanggal</option></select></label>
+            </div>
+            <input class="jebakan" name="situs" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <div class="pesan" role="status"></div>
+            <button class="tombol tombol--penuh" type="submit">Kirim jadwal survei</button>
+            <small>Agen kami mengonfirmasi lewat WhatsApp sebelum hari survei.</small>
+          </form>`}
+        </div>
       </aside>
     </div>
-    <section class="bagian" id="serupa" hidden>
-      <div class="bagian-kepala"><div><p class="alis">Di sekitar ${esc(namaKab(l.lokasi?.kabupaten))}</p><h2 class="judul-2">Properti serupa</h2></div></div>
+    <section class="bagian" id="serupa" hidden style="padding-bottom:0">
+      <div class="bagian-kepala"><div><p class="alis">Di sekitar ${esc(namaKab(l.lokasi?.kabupaten))}</p><h2 class="judul-2">Properti Serupa</h2></div></div>
       <div class="grid-listing" id="grid-serupa"></div>
     </section>`;
 
@@ -138,7 +174,7 @@ function render(l) {
     const data = { title: l.judul + ' — Sewain', text: `${l.judul} (${l.kode})`, url: location.href };
     if (navigator.share) { try { await navigator.share(data); } catch (_) {} return; }
     await navigator.clipboard?.writeText(location.href);
-    document.getElementById('bagikan').textContent = 'Tautan tersalin';
+    document.getElementById('bagikan').title = 'Tautan tersalin';
   });
   muatSerupa(l);
 }
@@ -173,7 +209,7 @@ function pasangPeta(l) {
   if (l.lokasi.presisi === 'titik') {
     L.marker(pusat, { icon: L.divIcon({ className: '', html: `<span class="penanda-harga">${esc(l.kode)}</span>`, iconSize: [0, 0] }) }).addTo(peta);
   } else {
-    L.circle(pusat, { radius: 600, color: '#1D3125', weight: 2, fillColor: '#B08A4E', fillOpacity: .18 }).addTo(peta);
+    L.circle(pusat, { radius: 600, color: '#A9725C', weight: 2, fillColor: '#A9725C', fillOpacity: .16 }).addTo(peta);
   }
 }
 

@@ -1,4 +1,4 @@
-import { ambilListing, kartuListing, esc, fotoKecil, labelHarga, rupiahRingkas, tempat, namaKab, AKAR, hrefListing } from './inti.js';
+import { ambilListing, kartuListing, esc, fotoKecil, labelHarga, rupiahRingkas, tempat, namaKab, AKAR, hrefListing, tipeLabel } from './inti.js';
 
 const WILAYAH = {
   'Bali': ['Kota Denpasar', 'Kabupaten Badung', 'Kabupaten Gianyar', 'Kabupaten Tabanan', 'Kabupaten Klungkung', 'Kabupaten Bangli', 'Kabupaten Karangasem', 'Kabupaten Buleleng', 'Kabupaten Jembrana'],
@@ -11,45 +11,42 @@ const ANGGARAN = {
 };
 
 const form = document.getElementById('saring');
-const pilihKab = document.getElementById('pilih-kabupaten');
+const pilihLokasi = document.getElementById('pilih-lokasi');
 const pilihMaks = document.getElementById('pilih-maks');
 const grid = document.getElementById('grid');
 const jumlahEl = document.getElementById('jumlah');
 let tampilan = 'daftar', peta = null, lapisPenanda = null, terakhir = [];
 
-function isiKabupaten() {
-  const prov = form.provinsi.value;
-  const daftar = prov ? WILAYAH[prov] : [...WILAYAH['Bali'], ...WILAYAH['Nusa Tenggara Barat']];
-  const pilih = pilihKab.value;
-  pilihKab.innerHTML = '<option value="">Semua</option>' + daftar.map(k => `<option value="${esc(k)}">${esc(namaKab(k))}</option>`).join('');
-  if (daftar.includes(pilih)) pilihKab.value = pilih;
-}
+pilihLokasi.innerHTML = '<option value="">Seluruh Bali &amp; NTB</option>' + Object.entries(WILAYAH).map(([prov, kab]) =>
+  `<optgroup label="${esc(prov)}"><option value="prov:${esc(prov)}">Seluruh ${prov === 'Bali' ? 'Bali' : 'NTB'}</option>${kab.map(k => `<option value="kab:${esc(k)}">${esc(namaKab(k))}</option>`).join('')}</optgroup>`).join('');
+
 function isiMaks() {
   const pilih = pilihMaks.value;
   pilihMaks.innerHTML = ANGGARAN[form.jenis.value].map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
   pilihMaks.disabled = !form.jenis.value;
-  pilihMaks.title = form.jenis.value ? '' : 'Pilih sewa atau jual dulu';
+  pilihMaks.title = form.jenis.value ? '' : 'Pilih sewa atau beli dulu';
   if ([...pilihMaks.options].some(o => o.value === pilih)) pilihMaks.value = pilih;
 }
 
 // isi formulir dari URL supaya tautan hasil saringan bisa dibagikan
 const awal = new URLSearchParams(location.search);
-for (const [k, v] of awal) if (form.elements[k]) form.elements[k].value = v;
-if (awal.get('kabupaten') && !awal.get('provinsi')) {
-  for (const [prov, kab] of Object.entries(WILAYAH)) if (kab.includes(awal.get('kabupaten'))) form.provinsi.value = prov;
-}
-isiKabupaten();
-if (awal.get('kabupaten')) pilihKab.value = awal.get('kabupaten');
+for (const k of ['jenis', 'tipe', 'cari', 'urut']) { const el = form.elements[k] || document.querySelector(`[name=${k}][form=saring]`); if (el && awal.get(k)) el.value = awal.get(k); }
+if (awal.get('kabupaten')) pilihLokasi.value = 'kab:' + awal.get('kabupaten');
+else if (awal.get('provinsi')) pilihLokasi.value = 'prov:' + awal.get('provinsi');
+if (awal.get('tipe') && !form.tipe.value) form.tipe.insertAdjacentHTML('beforeend', `<option value="${esc(awal.get('tipe'))}" selected>${esc(awal.get('tipe').split(',').map(tipeLabel).join(' & '))}</option>`);
 isiMaks();
 if (awal.get('maks')) pilihMaks.value = awal.get('maks');
 if (awal.get('tampil') === 'peta') tampilan = 'peta';
 
 function saringanSekarang() {
   const o = {};
-  for (const n of ['jenis', 'tipe', 'provinsi', 'kabupaten', 'maks', 'cari', 'urut']) {
+  for (const n of ['jenis', 'tipe', 'maks', 'cari', 'urut']) {
     const el = form.elements[n] || document.querySelector(`[name=${n}][form=saring]`);
     if (el && el.value && !el.disabled) o[n] = el.value.trim();
   }
+  const [jenisLok, nilai] = (pilihLokasi.value || '').split(/:(.+)/);
+  if (jenisLok === 'kab') o.kabupaten = nilai;
+  if (jenisLok === 'prov') o.provinsi = nilai;
   return o;
 }
 
@@ -64,9 +61,12 @@ async function muat() {
     const d = await ambilListing(s);
     terakhir = d.listing;
     jumlahEl.textContent = d.jumlah + ' properti' + (d.dariCadangan ? ' (data tersimpan — server sedang tidak terjangkau)' : '');
-    const judul = s.jenis === 'sewa' ? 'Properti disewakan' : s.jenis === 'jual' ? 'Properti dijual' : 'Properti';
-    document.getElementById('judul-halaman').textContent = judul + (s.kabupaten ? ' di ' + namaKab(s.kabupaten) : s.provinsi ? ' di ' + s.provinsi : '');
-    document.title = document.getElementById('judul-halaman').textContent + ' — Sewain Property Agency';
+    const apa = s.tipe ? s.tipe.split(',').map(tipeLabel).join(' & ') : 'Properti';
+    const judul = (s.jenis === 'sewa' ? apa + ' disewakan' : s.jenis === 'jual' ? apa + ' dijual' : s.tipe ? apa + ' disewakan & dijual' : 'Semua properti')
+      + (s.kabupaten ? ' di ' + namaKab(s.kabupaten) : s.provinsi ? ' di ' + s.provinsi : ' di Bali & NTB');
+    document.getElementById('judul-halaman').textContent = judul;
+    document.title = judul + ' — Sewain';
+    document.querySelectorAll('#chip-cepat a').forEach(a => a.setAttribute('aria-current', String(a.getAttribute('href') === location.search)));
     grid.innerHTML = d.listing.length ? d.listing.map(kartuListing).join('') : `
       <div class="kosong" style="grid-column:1/-1">
         <p style="margin:0;font-weight:600;color:var(--hutan)">Belum ada properti yang sesuai saringan ini.</p>
@@ -81,15 +81,15 @@ async function muat() {
 }
 
 form.addEventListener('input', e => {
-  if (e.target.name === 'provinsi') isiKabupaten();
   if (e.target.name === 'jenis') isiMaks();
   clearTimeout(jeda);
   jeda = setTimeout(muat, e.target.name === 'cari' ? 350 : 0);
 });
-form.addEventListener('submit', e => { e.preventDefault(); muat(); });
+form.addEventListener('submit', e => { e.preventDefault(); muat(); document.querySelector('.bilah-saring').scrollIntoView({ behavior: 'smooth' }); });
 // pilihan urutan ada di luar <form> (terhubung lewat atribut form=), jadi
 // kejadiannya tidak menggelembung ke form - perlu pendengar sendiri
 document.querySelector('[name=urut][form=saring]').addEventListener('input', muat);
+document.querySelector('[name=cari][form=saring]').addEventListener('input', () => { clearTimeout(jeda); jeda = setTimeout(muat, 350); });
 
 // ---------- peta
 document.querySelectorAll('[data-tampil]').forEach(b => b.addEventListener('click', () => {

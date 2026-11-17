@@ -1,18 +1,15 @@
-import { api, ambilListing, kartuListing, esc, fotoKecil, tempat, namaKab, AKAR, tipeLabel, rupiahRingkas, rupiahPenuh, hrefListing, tandaLogo } from './inti.js';
-import { renderRek } from './rek.js';
+import { ambilListing, kartuListing, esc, AKAR, tipeLabel, rupiahRingkas, rupiahPenuh, tempat, tandaLogo } from './inti.js';
 
 const ANGGARAN = {
-  sewa: [['', 'Berapa saja'], ['25000000', 'Rp25 jt / tahun'], ['50000000', 'Rp50 jt / tahun'], ['100000000', 'Rp100 jt / tahun'], ['200000000', 'Rp200 jt / tahun']],
-  jual: [['', 'Berapa saja'], ['500000000', 'Rp500 jt'], ['1000000000', 'Rp1 M'], ['2000000000', 'Rp2 M'], ['5000000000', 'Rp5 M']],
+  sewa: [['', 'Berapa saja'], ['25000000', 'Sampai Rp25 jt / tahun'], ['50000000', 'Sampai Rp50 jt / tahun'], ['100000000', 'Sampai Rp100 jt / tahun'], ['200000000', 'Sampai Rp200 jt / tahun']],
+  jual: [['', 'Berapa saja'], ['500000000', 'Sampai Rp500 jt'], ['1000000000', 'Sampai Rp1 M'], ['2000000000', 'Sampai Rp2 M'], ['5000000000', 'Sampai Rp5 M']],
 };
 
 // ---------- kartu pencarian
 const formCari = document.getElementById('form-cari');
 const pilihAnggaran = document.getElementById('cari-anggaran');
-function isiAnggaran() {
-  pilihAnggaran.innerHTML = ANGGARAN[formCari.jenis.value].map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
-}
-formCari.addEventListener('change', e => { if (e.target.name === 'jenis') isiAnggaran(); });
+const isiAnggaran = () => { pilihAnggaran.innerHTML = ANGGARAN[formCari.jenis.value].map(([v, t]) => `<option value="${v}">${t}</option>`).join(''); };
+formCari.jenis.addEventListener('change', isiAnggaran);
 formCari.addEventListener('submit', () => {
   // parameter kosong tidak ikut dikirim supaya URL hasil tetap rapi
   for (const el of formCari.elements) if (el.name && !el.value) el.disabled = true;
@@ -20,60 +17,51 @@ formCari.addEventListener('submit', () => {
 });
 isiAnggaran();
 
-// ---------- properti pilihan + wilayah + layanan + contoh kalkulator
+// ---------- tombol geser ubin wilayah
+document.querySelectorAll('[data-geser-target]').forEach(g => g.addEventListener('click', e => {
+  const b = e.target.closest('[data-arah]'); if (!b) return;
+  const t = document.getElementById(g.dataset.geserTarget);
+  t.scrollBy({ left: Number(b.dataset.arah) * (t.clientWidth * .8), behavior: 'smooth' });
+}));
+
+// ---------- data properti
 async function muatBeranda() {
   let data;
   try { data = await ambilListing({}); }
   catch (e) {
-    document.getElementById('grid-terbaru').innerHTML = `<div class="kosong">Daftar properti belum bisa dimuat. ${esc(e.message)}</div>`;
+    document.getElementById('grid-terbaru').innerHTML = `<div class="kosong" style="grid-column:1/-1">Daftar properti belum bisa dimuat. ${esc(e.message)}</div>`;
     return;
   }
   const semua = data.listing;
-  // Pilihan agen dulu, lalu yang terbaru - masing-masing hanya yang berfoto.
   const urut = [...semua].sort((a, b) => (b.unggulan - a.unggulan) || String(b.dibuat).localeCompare(String(a.dibuat)));
-  const tampil = urut.filter(l => (l.foto || []).length).slice(0, 6);
-  document.getElementById('grid-terbaru').innerHTML = tampil.map(kartuListing).join('');
+  document.getElementById('grid-terbaru').innerHTML = urut.filter(l => (l.foto || []).length).slice(0, 6).map(kartuListing).join('');
   document.getElementById('tautan-semua').textContent = 'Lihat semua ' + data.jumlah + ' properti →';
 
-  // Plakat di foto pembuka mengikuti listing yang fotonya dipakai.
-  const tab = semua.find(l => l.kode === 'TAB-001');
-  if (tab) document.getElementById('hero-plakat').href = hrefListing(tab);
+  // jumlah listing di ubin wilayah
+  const hitung = (pred) => semua.filter(pred).length;
+  document.querySelectorAll('[data-kab]').forEach(el => {
+    const n = hitung(l => l.lokasi?.kabupaten === el.dataset.kab);
+    el.textContent = n ? n + ' properti' : 'Titipkan properti Anda di sini';
+  });
+  document.querySelectorAll('[data-prov]').forEach(el => {
+    const n = hitung(l => l.lokasi?.provinsi === el.dataset.prov);
+    el.textContent = n ? n + ' properti' : 'Penerimaan listing dibuka';
+  });
 
-  // Ubin wilayah: satu foto nyata dari wilayah itu + jumlah listing.
-  const perKab = new Map();
-  for (const l of semua) {
-    const k = l.lokasi?.kabupaten; if (!k) continue;
-    const w = perKab.get(k) || { kab: k, prov: l.lokasi.provinsi, n: 0, sewa: 0, jual: 0, foto: null };
-    w.n++; w[l.jenis]++;
-    if (!w.foto && (l.foto || [])[0]) w.foto = l.foto[0];
-    perKab.set(k, w);
-  }
-  const wil = [...perKab.values()].sort((a, b) => (!!b.foto - !!a.foto) || b.n - a.n).slice(0, 4);
-  const ubin = wil.map(w => `
-    <a class="ubin" href="${AKAR}properti/?kabupaten=${encodeURIComponent(w.kab)}">
-      ${w.foto ? `<img src="${esc(fotoKecil(w.foto, 640))}" alt="" loading="lazy" decoding="async">` : ''}
-      <span class="ubin-teks"><b>${esc(namaKab(w.kab))}</b><small>${[w.sewa ? w.sewa + ' disewakan' : '', w.jual ? w.jual + ' dijual' : ''].filter(Boolean).join(' · ')}</small></span>
-    </a>`);
-  if (!semua.some(l => l.lokasi?.provinsi === 'Nusa Tenggara Barat') && ubin.length < 5) {
-    ubin.push(`<a class="ubin" href="${AKAR}titip/" style="background:var(--hutan-muda)">
-      <span class="ubin-teks"><b>Lombok &amp; Sumbawa</b><small>Penerimaan listing NTB dibuka. Titipkan properti Anda.</small></span></a>`);
-  }
-  document.getElementById('ubin-wilayah').innerHTML = ubin.slice(0, 5).join('');
-  if (ubin.length === 5) document.getElementById('ubin-wilayah').style.gridTemplateColumns = 'repeat(5, minmax(0, 1fr))';
+  // harga "mulai" di kartu layanan dihitung dari data
+  const mulai = (el, daftar, satuan) => {
+    const ada = daftar.filter(l => l.harga != null);
+    if (!el || !daftar.length) return;
+    el.innerHTML = (ada.length ? `Mulai ${esc(rupiahRingkas(Math.min(...ada.map(l => l.harga))))}${satuan}` : 'Lihat yang tersedia') + `<small>${daftar.length} properti</small>`;
+  };
+  mulai(document.querySelector('[data-layanan="sewa-usaha"]'), semua.filter(l => l.jenis === 'sewa' && ['toko', 'ruko', 'gudang', 'kantor'].includes(l.tipe)), ' / tahun');
+  mulai(document.querySelector('[data-layanan="sewa-hunian"]'), semua.filter(l => l.jenis === 'sewa' && ['rumah', 'kontrakan', 'villa'].includes(l.tipe)), ' / tahun');
+  mulai(document.querySelector('[data-layanan="jual"]'), semua.filter(l => l.jenis === 'jual'), '');
 
-  // Harga "mulai" di kartu layanan dihitung dari data, bukan ditulis tangan.
-  for (const jenis of ['sewa', 'jual']) {
-    const ada = semua.filter(l => l.jenis === jenis && l.harga != null);
-    const el = document.querySelector(`[data-layanan="${jenis}"]`);
-    if (!ada.length || !el) continue;
-    const termurah = Math.min(...ada.map(l => l.harga));
-    el.innerHTML = `Mulai ${esc(rupiahRingkas(termurah))}${jenis === 'sewa' ? ' / tahun' : ''}<small>${semua.filter(l => l.jenis === jenis).length} properti ${jenis === 'sewa' ? 'disewakan' : 'dijual'}</small>`;
-  }
-
-  // Pilihan contoh di kalkulator = listing dijual yang punya harga.
+  // pilihan di kalkulator = properti dijual yang berharga
   const contoh = semua.filter(l => l.jenis === 'jual' && l.harga).slice(0, 12);
-  const pilih = document.getElementById('kalk-contoh');
-  pilih.insertAdjacentHTML('beforeend', contoh.map(l => `<option value="${l.harga}">${esc(l.kode)} · ${esc(tipeLabel(l.tipe))} ${esc(tempat(l))} · ${esc(rupiahRingkas(l.harga))}</option>`).join(''));
+  document.getElementById('kalk-contoh').insertAdjacentHTML('beforeend',
+    contoh.map(l => `<option value="${l.harga}">${esc(l.kode)} · ${esc(tipeLabel(l.tipe))} ${esc(tempat(l))} · ${esc(rupiahRingkas(l.harga))}</option>`).join(''));
 }
 
 // ---------- kalkulator cicilan (anuitas, bunga tetap)
@@ -94,17 +82,15 @@ function hitung() {
 }
 kalk.addEventListener('input', e => {
   if (e.target.name === 'harga') {
-    const posisiDariKanan = e.target.value.length - e.target.selectionStart;
+    const dariKanan = e.target.value.length - e.target.selectionStart;
     const v = angkaDari(e.target.value);
     e.target.value = v ? v.toLocaleString('id-ID') : '';
-    const p = Math.max(e.target.value.length - posisiDariKanan, 0);
+    const p = Math.max(e.target.value.length - dariKanan, 0);
     e.target.setSelectionRange(p, p);
   }
   hitung();
 });
-kalk.contoh.addEventListener('change', () => {
-  if (kalk.contoh.value) { kalk.harga.value = Number(kalk.contoh.value).toLocaleString('id-ID'); hitung(); }
-});
+kalk.contoh.addEventListener('change', () => { if (kalk.contoh.value) { kalk.harga.value = Number(kalk.contoh.value).toLocaleString('id-ID'); hitung(); } });
 kalk.addEventListener('submit', e => e.preventDefault());
 hitung();
 
@@ -116,34 +102,12 @@ async function muatArtikel() {
     const daftar = (await r.json()).artikel.slice(0, 3);
     wadah.innerHTML = daftar.map(a => `
       <a class="kartu-artikel" href="${AKAR}${esc(a.jalur.replace(/^\//, ''))}">
-        <figure>${a.gambar ? `<img src="${esc(a.gambar)}" alt="" loading="lazy">` : `<span class="tanpa-gambar">${tandaLogo()}</span>`}</figure>
+        <figure>${a.gambar ? `<img src="${AKAR}${esc(a.gambar)}" alt="" loading="lazy">` : `<span class="tanpa-gambar">${tandaLogo()}</span>`}</figure>
         <div><time datetime="${esc(a.tanggal)}">${esc(new Date(a.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }))}</time>
         <h3>${esc(a.judul)}</h3><p>${esc(a.ringkas)}</p></div>
       </a>`).join('');
   } catch (_) { wadah.closest('section').hidden = true; }
 }
-
-// ---------- rekomendasi singkat
-const formRek = document.getElementById('form-rek');
-const hasilRek = document.getElementById('rek-hasil');
-formRek.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
-  formRek.kebutuhan.value = c.dataset.isi;
-  formRek.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x === c));
-  formRek.requestSubmit();
-}));
-formRek.addEventListener('submit', async e => {
-  e.preventDefault();
-  const kebutuhan = formRek.kebutuhan.value.trim();
-  if (kebutuhan.length < 8) { hasilRek.innerHTML = '<div class="rek-kosong">Tulis sedikit lebih lengkap: jenis usaha, wilayah, dan anggaran.</div>'; formRek.kebutuhan.focus(); return; }
-  const tombol = formRek.querySelector('[type=submit]');
-  tombol.disabled = true; tombol.textContent = 'Mencocokkan…';
-  try {
-    const r = await api('/api/rekomendasi', { method: 'POST', json: { kebutuhan } });
-    hasilRek.innerHTML = renderRek(r, 3) + (r.hasil.length ? `<a class="tombol tombol--garis tombol--penuh" style="color:var(--krem);border-color:rgba(243,239,228,.4)" href="${AKAR}rekomendasi/?q=${encodeURIComponent(kebutuhan)}">Lihat semua kecocokan &amp; atur kriteria</a>` : '');
-  } catch (err) {
-    hasilRek.innerHTML = `<div class="rek-kosong">${esc(err.message)}</div>`;
-  } finally { tombol.disabled = false; tombol.textContent = 'Carikan properti'; }
-});
 
 muatBeranda();
 muatArtikel();
