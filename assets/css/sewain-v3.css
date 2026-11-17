@@ -473,3 +473,8 @@ body[data-pahlawan] .kepala:not(.bergulir):not(.menu-terbuka) .nav-kanan .tombol
   .spek-ringkas .ikon { width: 12px; height: 12px; }
   .tanpa-foto small { font-size: 9px; }
 }
+
+/* foto profil Google di tombol akun */
+.nav-akun-bulat img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+.nav-akun--foto .nav-akun-bulat { border: 0; width: 26px; height: 26px; background: none; }
+.nav-akun--foto .nav-akun-bulat::before { display: none !important; }

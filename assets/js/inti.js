@@ -344,7 +344,14 @@ akunMod().then(m => m.pantau((u, p) => {
   if (nav) {
     nav.querySelector('.nav-akun-teks').textContent = u ? 'Akun saya' : 'Masuk';
     const bulat = nav.querySelector('.nav-akun-bulat');
-    bulat.textContent = u ? ((p && p.nama) || u.displayName || u.email || '?').trim().charAt(0).toUpperCase() : '';
+    // Foto profil dari akun Google (photoURL); akun email tanpa foto memakai huruf awal nama.
+    const foto = u && (u.photoURL || (p && p.foto));
+    if (foto) {
+      if (bulat.querySelector('img')?.getAttribute('src') !== foto) bulat.innerHTML = `<img src="${esc(foto)}" alt="" referrerpolicy="no-referrer">`;
+    } else {
+      bulat.textContent = u ? ((p && p.nama) || u.displayName || u.email || '?').trim().charAt(0).toUpperCase() : '';
+    }
+    nav.classList.toggle('nav-akun--foto', !!foto);
     nav.classList.toggle('nav-akun--masuk', !!u);
   }
   tandaiFavorit(m.favoritSaya());

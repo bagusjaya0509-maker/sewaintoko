@@ -115,7 +115,8 @@ $('form-sandi').addEventListener('submit', e => { e.preventDefault(); gantiSandi
 
 async function mulai(pengurus) {
   saya = pengurus;
-  $('akun-kepala').innerHTML = `<span style="color:var(--lumut)">${esc(saya.nama)} · ${esc(saya.peran)}</span>
+  const fotoProfil = modeGoogle ? akunFb.pengguna()?.photoURL : null;
+  $('akun-kepala').innerHTML = `${fotoProfil ? `<img src="${esc(fotoProfil)}" alt="" referrerpolicy="no-referrer" style="width:32px;height:32px;border-radius:50%;object-fit:cover">` : ''}<span style="color:var(--lumut)">${esc(saya.nama)} · ${esc(saya.peran)}</span>
     <a class="tombol tombol--garis tombol--kecil" href="${AKAR}" target="_blank" rel="noopener">Lihat situs</a>
     <button class="tombol tombol--kecil" type="button" id="tombol-keluar">Keluar</button>`;
   $('tombol-keluar').onclick = keluar;
