@@ -1,4 +1,4 @@
-import { esc, fotoKecil, labelHarga, AKAR } from './inti.js';
+import { esc, fotoKecil, labelHarga, AKAR, hrefListing } from './inti.js';
 
 export function renderRek(r, batas = 6) {
   if (!r.hasil.length) {
@@ -9,7 +9,7 @@ export function renderRek(r, batas = 6) {
     : 'Dicocokkan otomatis dengan ' + r.dinilai + ' properti yang tersedia.';
   return r.hasil.slice(0, batas).map(h => {
     const l = h.listing, hg = labelHarga(l);
-    return `<a class="rek-item" href="${AKAR}listing/?kode=${encodeURIComponent(l.kode)}">
+    return `<a class="rek-item" href="${hrefListing(l)}">
       ${l.foto && l.foto[0] ? `<img src="${esc(fotoKecil(l.foto[0], 320))}" alt="" loading="lazy">` : '<span></span>'}
       <div>
         <h4>${esc(l.judul)}</h4>

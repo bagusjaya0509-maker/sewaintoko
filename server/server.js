@@ -19,6 +19,7 @@ const fsp = fs.promises;
 const path = require('path');
 const crypto = require('crypto');
 const Busboy = require('busboy');
+const { verifikasiIdToken } = require('./firebase-token');
 
 // ---------------------------------------------------------------- setelan
 muatEnv(path.join(__dirname, '.env'));
@@ -31,6 +32,8 @@ const AI_KUNCI = process.env.ANTHROPIC_API_KEY || '';
 const AI_MODEL = process.env.AI_MODEL || 'claude-haiku-5-5';
 const WA_AGEN = process.env.WA_AGEN || '6285947720369';
 const WA_LINK = process.env.WA_LINK || 'https://wa.me/message/6HMVH6NMUEAQD1';
+const FIREBASE_PROYEK = process.env.FIREBASE_PROYEK || 'sewain-3274b';
+const BATAS_VIDEO_PELANGGAN = 150 * 1024 * 1024;
 
 const JAM_LAYANAN = (process.env.JAM_LAYANAN || '09:00,10:00,11:00,13:00,14:00,15:00,16:00').split(',');
 const HARI_LIBUR = [0];               // 0 = Minggu
@@ -183,7 +186,26 @@ async function siapkanAdminAwal() {
 
 const hashToken = t => crypto.createHash('sha256').update(t).digest('hex');
 
+// Token login Firebase (JWT tiga bagian). Dipakai pelanggan DAN pengurus yang
+// masuk dengan Google: identitas dari Firebase, hak akses tetap dari daftar
+// pengguna di server ini - akun Google mana pun TIDAK otomatis jadi pengurus.
+async function identitasDari(req) {
+  const m = String(req.headers.authorization || '').match(/^Bearer\s+([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/);
+  if (!m) return null;
+  try { return await verifikasiIdToken(m[1], FIREBASE_PROYEK); }
+  catch (e) {
+    console.error('[sewain] verifikasi token:', e.message);
+    throw new GalatPengguna(503, 'Layanan masuk sedang tidak terjangkau. Coba lagi sebentar.');
+  }
+}
+
 async function pengurusDari(req) {
+  if (/^Bearer\s+[^.\s]+\.[^.\s]+\.[^.\s]+$/.test(String(req.headers.authorization || ''))) {
+    const k = await identitasDari(req);
+    if (!k || !k.email || !k.emailTerverifikasi) return null;
+    const u = (await baca('pengguna', [])).find(x => x.email === k.email);
+    return u ? { email: u.email, nama: u.nama || k.nama, peran: u.peran, wajibGantiSandi: false, lewatGoogle: true } : null;
+  }
   const m = String(req.headers.authorization || '').match(/^Bearer\s+([a-f0-9]{64})$/);
   if (!m) return null;
   const sesi = await baca('sesi', {});
@@ -255,6 +277,34 @@ function rapikanListing(masuk, lama) {
   return l;
 }
 
+// Data internal pendataan: hanya pengurus yang bisa membaca & mengubah, dan
+// TIDAK PERNAH ikut ke API publik (lihat untukPublik). Pemilik, penyewa aktif +
+// masa kontrak, catatan, serta bahan mentah (foto/video asli untuk diolah).
+const tglSah = v => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+function rapikanInternal(m, lama, oleh) {
+  const o = Object.assign({ pemilik: {}, penyewa: {}, catatan: null, mentah: [] }, lama || {});
+  if (m.pemilik && typeof m.pemilik === 'object') {
+    o.pemilik = { nama: teks(m.pemilik.nama, 80) || null, telepon: teks(m.pemilik.telepon, 20).replace(/[^\d+]/g, '') || null,
+      email: teks(m.pemilik.email, 120) || null, alamat: teks(m.pemilik.alamat, 240) || null };
+  }
+  if (m.penyewa && typeof m.penyewa === 'object') {
+    o.penyewa = { nama: teks(m.penyewa.nama, 80) || null, telepon: teks(m.penyewa.telepon, 20).replace(/[^\d+]/g, '') || null,
+      mulai: tglSah(m.penyewa.mulai), berakhir: tglSah(m.penyewa.berakhir), nilai: angka(m.penyewa.nilai),
+      catatan: teks(m.penyewa.catatan, 600) || null };
+    if (o.penyewa.mulai && o.penyewa.berakhir && o.penyewa.berakhir < o.penyewa.mulai) throw new GalatPengguna(400, 'Tanggal kontrak berakhir tidak boleh sebelum tanggal mulai.');
+  }
+  if ('catatan' in m) o.catatan = teks(m.catatan, 2000) || null;
+  if (Array.isArray(m.mentah)) {
+    const sebelumnya = new Map((o.mentah || []).map(x => [x.url, x]));
+    o.mentah = m.mentah.slice(0, 80).filter(x => x && typeof x.url === 'string' && /^https:\/\//.test(x.url) && x.url.length < 600).map(x => {
+      const ada = sebelumnya.get(x.url) || {};
+      return { url: x.url, jenis: x.jenis === 'video' ? 'video' : 'foto', nama: teks(x.nama, 120) || ada.nama || null,
+        waktu: ada.waktu || new Date().toISOString().slice(0, 19), oleh: ada.oleh || oleh, diolah: !!x.diolah };
+    });
+  }
+  return o;
+}
+
 async function kodeBaru(listing, kabupaten) {
   let awalan = 'SWN';
   for (const prov of Object.values(WILAYAH)) if (prov[kabupaten]) awalan = prov[kabupaten];
@@ -266,7 +316,10 @@ async function kodeBaru(listing, kabupaten) {
 // Catatan internal tim (email pengunggah, status posting sosmed) tidak boleh
 // sampai ke pengunjung.
 function untukPublik(l) {
-  const { sumber, oleh, posting, ...sisa } = l;
+  const { sumber, oleh, posting, titipan, internal, ...sisa } = l;
+  // Listing pindahan Blogger tetap memakai URL lamanya (sudah terindeks).
+  const m = typeof sumber === 'string' && sumber.match(/^https?:\/\/(?:www\.)?sewatoko\.com(\/\d{4}\/\d{2}\/[a-z0-9_-]+\.html)$/);
+  if (m) sisa.halaman = m[1];
   return sisa;
 }
 
@@ -515,7 +568,7 @@ async function slotTanggal(tanggal) {
   return { tanggal, libur: false, slot };
 }
 
-async function buatBooking(masuk, ip) {
+async function buatBooking(masuk, ip, akun) {
   batasi('booking:' + ip, 5, 3600e3);
   const nama = teks(masuk.nama, 80);
   const telepon = teks(masuk.telepon, 20).replace(/[^\d+]/g, '');
@@ -539,6 +592,7 @@ async function buatBooking(masuk, ip) {
     pesan: teks(masuk.pesan, 800) || null,
     status: 'baru',
   };
+  if (akun) { b.uid = akun.uid; if (!b.email && akun.email) b.email = akun.email; }
   booking.push(b);
   await tulis('booking', booking);
   return b;
@@ -550,10 +604,10 @@ const TIPE_MEDIA = {
   'video/mp4': ['video', '.mp4'], 'video/quicktime': ['video', '.mov'], 'video/webm': ['video', '.webm'],
 };
 
-function terimaUnggahan(req) {
+function terimaUnggahan(req, batasVideo = BATAS_VIDEO) {
   return new Promise((ok, gagal) => {
     let bb;
-    try { bb = Busboy({ headers: req.headers, limits: { files: 1, fileSize: BATAS_VIDEO, fields: 5 } }); }
+    try { bb = Busboy({ headers: req.headers, limits: { files: 1, fileSize: batasVideo, fields: 5 } }); }
     catch (_) { return gagal(new GalatPengguna(400, 'Unggahan tidak dikenali.')); }
     let selesai = false, adaBerkas = false;
     bb.on('file', (_nama, aliran, info) => {
@@ -561,7 +615,7 @@ function terimaUnggahan(req) {
       const jenis = TIPE_MEDIA[info.mimeType];
       if (!jenis) { aliran.resume(); selesai = true; return gagal(new GalatPengguna(415, 'Jenis berkas tidak didukung. Pakai JPG, PNG, WEBP, MP4, MOV, atau WEBM.')); }
       const [golongan, ekstensi] = jenis;
-      const batas = golongan === 'foto' ? BATAS_FOTO : BATAS_VIDEO;
+      const batas = golongan === 'foto' ? BATAS_FOTO : batasVideo;
       const kini = new Date();
       const sub = kini.getUTCFullYear() + '/' + String(kini.getUTCMonth() + 1).padStart(2, '0');
       const nama = crypto.randomBytes(9).toString('hex') + ekstensi;
@@ -676,8 +730,137 @@ daftar('POST', /^\/api\/rekomendasi$/, async ({ req, ip }) => {
 daftar('GET', /^\/api\/jadwal$/, async ({ q }) => slotTanggal(String(q.tanggal || '')));
 
 daftar('POST', /^\/api\/booking$/, async ({ req, ip }) => {
-  const b = await buatBooking(await bacaBadan(req, 16 * 1024), ip);
+  const akun = await identitasDari(req).catch(() => null);
+  const b = await buatBooking(await bacaBadan(req, 16 * 1024), ip, akun);
   return { ok: true, booking: { id: b.id, tanggal: b.tanggal, jam: b.jam, jenis: b.jenis, kode: b.kode }, wa: WA_LINK };
+});
+
+// --- akun pelanggan (pembeli, penyewa, pemilik yang menitip properti)
+async function wajibAkun(req) {
+  const k = await identitasDari(req);
+  if (!k) throw new GalatPengguna(401, 'Silakan masuk dulu.');
+  const semua = await baca('pelanggan', []);
+  let p = semua.find(x => x.uid === k.uid);
+  if (!p) {
+    p = { uid: k.uid, email: k.email, nama: k.nama || (k.email ? k.email.split('@')[0] : 'Pengguna'), telepon: null,
+      foto: k.foto, penyedia: k.penyedia, favorit: [], dibuat: new Date().toISOString() };
+    semua.push(p);
+    await tulis('pelanggan', semua);
+  } else if (k.email && p.email !== k.email) { p.email = k.email; await tulis('pelanggan', semua); }
+  return { p, semua, k };
+}
+const profilPublik = (p, k) => ({ uid: p.uid, email: p.email, nama: p.nama, telepon: p.telepon, foto: p.foto,
+  favorit: p.favorit || [], emailTerverifikasi: !!(k && k.emailTerverifikasi), dibuat: p.dibuat });
+
+daftar('GET', /^\/api\/akun$/, async ({ req }) => {
+  const { p, k } = await wajibAkun(req);
+  const pengurus = k.email && k.emailTerverifikasi && (await baca('pengguna', [])).some(u => u.email === k.email);
+  return { akun: profilPublik(p, k), pengurus: !!pengurus };
+});
+
+daftar('PATCH', /^\/api\/akun$/, async ({ req }) => {
+  const { p, semua, k } = await wajibAkun(req);
+  const m = await bacaBadan(req, 4096);
+  if ('nama' in m) { const n = teks(m.nama, 80); if (n.length < 2) throw new GalatPengguna(400, 'Isi nama Anda.'); p.nama = n; }
+  if ('telepon' in m) {
+    const t = teks(m.telepon, 20).replace(/[^\d+]/g, '');
+    if (t && !/^(\+?62|0)8\d{7,12}$/.test(t)) throw new GalatPengguna(400, 'Nomor WhatsApp belum benar. Contoh: 0812xxxxxxx.');
+    p.telepon = t || null;
+  }
+  await tulis('pelanggan', semua);
+  return { akun: profilPublik(p, k) };
+});
+
+daftar('POST', /^\/api\/akun\/favorit\/([A-Za-z0-9-]{3,16})$/, async ({ req, cocok }) => {
+  const { p, semua, k } = await wajibAkun(req);
+  const kode = cocok[1].toUpperCase();
+  if (!(await baca('listing', [])).some(l => l.kode === kode && l.terbit !== false)) throw new GalatPengguna(404, 'Listing tidak ditemukan.');
+  p.favorit = [kode, ...(p.favorit || []).filter(x => x !== kode)].slice(0, 200);
+  await tulis('pelanggan', semua);
+  return { akun: profilPublik(p, k) };
+});
+
+daftar('DELETE', /^\/api\/akun\/favorit\/([A-Za-z0-9-]{3,16})$/, async ({ req, cocok }) => {
+  const { p, semua, k } = await wajibAkun(req);
+  p.favorit = (p.favorit || []).filter(x => x !== cocok[1].toUpperCase());
+  await tulis('pelanggan', semua);
+  return { akun: profilPublik(p, k) };
+});
+
+daftar('GET', /^\/api\/akun\/jadwal$/, async ({ req }) => {
+  const { p } = await wajibAkun(req);
+  const milik = (await baca('booking', [])).filter(b => b.uid === p.uid);
+  return { jadwal: milik.map(b => ({ id: b.id, tanggal: b.tanggal, jam: b.jam, jenis: b.jenis, cara: b.cara, kode: b.kode, status: b.status, dibuat: b.dibuat }))
+    .sort((a, b) => (b.tanggal + b.jam).localeCompare(a.tanggal + a.jam)) };
+});
+
+// Titip properti: pemilik mengisi data + foto; tersimpan sebagai DRAF yang
+// baru tayang setelah pengurus memeriksa dan menekan "Tayang" di panel.
+const BATAS_TITIP_AKTIF = 10;
+daftar('GET', /^\/api\/akun\/titip$/, async ({ req }) => {
+  const { p } = await wajibAkun(req);
+  const milik = (await baca('listing', [])).filter(l => l.titipan && l.titipan.uid === p.uid);
+  return { titip: milik.map(l => ({ kode: l.kode, judul: l.judul, jenis: l.jenis, tipe: l.tipe, harga: l.harga, periode: l.periode,
+    tayang: l.terbit !== false, status: l.status, foto: (l.foto || []).slice(0, 1), dibuat: l.dibuat })) };
+});
+
+daftar('POST', /^\/api\/akun\/titip$/, async ({ req }) => {
+  const { p } = await wajibAkun(req);
+  batasi('titip:' + p.uid, 5, 3600e3);
+  const m = await bacaBadan(req, 64 * 1024);
+  const semua = await baca('listing', []);
+  if (semua.filter(l => l.titipan && l.titipan.uid === p.uid && l.terbit === false).length >= BATAS_TITIP_AKTIF)
+    throw new GalatPengguna(429, 'Masih ada ' + BATAS_TITIP_AKTIF + ' titipan yang menunggu diperiksa. Tunggu sebagian ditayangkan dulu.');
+  const telepon = teks(m.telepon, 20).replace(/[^\d+]/g, '');
+  if (!/^(\+?62|0)8\d{7,12}$/.test(telepon)) throw new GalatPengguna(400, 'Nomor WhatsApp belum benar. Contoh: 0812xxxxxxx.');
+  // Foto & video hanya boleh berasal dari unggahan akun ini sendiri.
+  const unggahanSaya = new Set(((await baca('unggahan-pelanggan', {}))[p.uid] || []).map(x => x.url));
+  const masuk = Object.assign({}, m, {
+    foto: (Array.isArray(m.foto) ? m.foto : []).filter(u => unggahanSaya.has(u)).slice(0, 15),
+    video: (Array.isArray(m.video) ? m.video : []).filter(u => unggahanSaya.has(typeof u === 'string' ? u : u && u.url)).slice(0, 2),
+  });
+  delete masuk.terbit; delete masuk.unggulan; delete masuk.status; delete masuk.internal;
+  const l = rapikanListing(masuk, { status: 'tersedia', unggulan: false, terbit: false, foto: [], video: [], fitur: [], deskripsi: [] });
+  if (!l.jenis || !l.tipe) throw new GalatPengguna(400, 'Pilih disewakan atau dijual, dan tipe properti.');
+  if (!l.lokasi || !l.lokasi.kabupaten) throw new GalatPengguna(400, 'Pilih provinsi dan kabupaten/kota.');
+  l.kode = await kodeBaru(semua, l.lokasi.kabupaten);
+  if (!l.judul) l.judul = (l.jenis === 'jual' ? 'Dijual ' : 'Disewakan ') + l.tipe.charAt(0).toUpperCase() + l.tipe.slice(1) + (l.lokasi.area ? ' di ' + l.lokasi.area : '');
+  l.dibuat = l.diubah = new Date().toISOString().slice(0, 19);
+  l.oleh = 'titipan:' + (p.email || p.uid);
+  l.titipan = { uid: p.uid, nama: teks(m.namaPemilik, 80) || p.nama, telepon, email: p.email, catatan: teks(m.catatan, 800) || null, diterima: l.dibuat };
+  l.internal = { pemilik: { nama: l.titipan.nama, telepon, email: p.email, alamat: null }, penyewa: {}, catatan: l.titipan.catatan,
+    mentah: [...l.foto.map(u => ({ url: u, jenis: 'foto' })), ...l.video.map(v => ({ url: v.url, jenis: 'video' }))]
+      .map(x => Object.assign(x, { nama: null, waktu: l.dibuat, oleh: 'pemilik', diolah: false })) };
+  semua.push(l);
+  await tulis('listing', semua);
+  if (!p.telepon) {
+    const pel = await baca('pelanggan', []);
+    const x = pel.find(y => y.uid === p.uid);
+    if (x) { x.telepon = telepon; await tulis('pelanggan', pel); }
+  }
+  return { ok: true, kode: l.kode };
+});
+
+daftar('POST', /^\/api\/akun\/media$/, async ({ req }) => {
+  const { p } = await wajibAkun(req);
+  batasi('media-akun:' + p.uid, 40, 3600e3);
+  if (!/multipart\/form-data/.test(String(req.headers['content-type']))) throw new GalatPengguna(400, 'Kirim sebagai unggahan berkas.');
+  const catatan = await baca('unggahan-pelanggan', {});
+  const milik = catatan[p.uid] || [];
+  const kemarin = Date.now() - 864e5;
+  if (milik.filter(x => Date.parse(x.waktu) > kemarin).length >= 60) throw new GalatPengguna(429, 'Batas unggahan harian tercapai. Coba lagi besok.');
+  const hasil = await terimaUnggahan(req, BATAS_VIDEO_PELANGGAN);
+  milik.push({ url: hasil.url, jenis: hasil.jenis, waktu: new Date().toISOString() });
+  catatan[p.uid] = milik.slice(-300);
+  await tulis('unggahan-pelanggan', catatan);
+  return hasil;
+});
+
+daftar('GET', /^\/api\/pengurus\/pelanggan$/, async ({ req }) => {
+  await wajibPengurus(req, 'admin');
+  const pel = await baca('pelanggan', []);
+  return { pelanggan: pel.map(p => ({ email: p.email, nama: p.nama, telepon: p.telepon, favorit: (p.favorit || []).length, dibuat: p.dibuat, penyedia: p.penyedia }))
+    .sort((a, b) => String(b.dibuat).localeCompare(String(a.dibuat))) };
 });
 
 // --- pengurus
@@ -688,7 +871,7 @@ daftar('POST', /^\/api\/pengurus\/masuk$/, async ({ req, ip }) => {
   const pengguna = await baca('pengguna', []);
   const u = pengguna.find(x => x.email === email);
   const hashMasuk = hashSandi(String(m.sandi || ''), u ? u.garam : 'garam-palsu-supaya-waktunya-sama');
-  if (!u || !crypto.timingSafeEqual(Buffer.from(hashMasuk, 'hex'), Buffer.from(u.hash, 'hex')))
+  if (!u || !u.hash || !crypto.timingSafeEqual(Buffer.from(hashMasuk, 'hex'), Buffer.from(u.hash, 'hex')))
     throw new GalatPengguna(401, 'Email atau sandi salah.');
   const token = crypto.randomBytes(32).toString('hex');
   const sesi = await baca('sesi', {});
@@ -714,7 +897,7 @@ daftar('POST', /^\/api\/pengurus\/sandi$/, async ({ req, ip }) => {
   if (baru.length < 10) throw new GalatPengguna(400, 'Sandi baru minimal 10 karakter.');
   const pengguna = await baca('pengguna', []);
   const u = pengguna.find(x => x.email === saya.email);
-  if (hashSandi(String(m.lama || ''), u.garam) !== u.hash) throw new GalatPengguna(400, 'Sandi lama salah.');
+  if (u.hash && hashSandi(String(m.lama || ''), u.garam) !== u.hash) throw new GalatPengguna(400, 'Sandi lama salah.');
   u.garam = crypto.randomBytes(16).toString('hex');
   u.hash = hashSandi(baru, u.garam);
   delete u.wajibGantiSandi;
@@ -724,7 +907,7 @@ daftar('POST', /^\/api\/pengurus\/sandi$/, async ({ req, ip }) => {
 
 daftar('GET', /^\/api\/pengurus\/akun$/, async ({ req }) => {
   await wajibPengurus(req, 'admin');
-  return { akun: (await baca('pengguna', [])).map(u => ({ email: u.email, nama: u.nama, peran: u.peran, dibuat: u.dibuat })) };
+  return { akun: (await baca('pengguna', [])).map(u => ({ email: u.email, nama: u.nama, peran: u.peran, dibuat: u.dibuat, pakaiSandi: !!u.hash })) };
 });
 
 daftar('POST', /^\/api\/pengurus\/akun$/, async ({ req }) => {
@@ -732,12 +915,17 @@ daftar('POST', /^\/api\/pengurus\/akun$/, async ({ req }) => {
   const m = await bacaBadan(req, 4096);
   const email = teks(m.email, 120).toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new GalatPengguna(400, 'Email tidak valid.');
-  if (String(m.sandi || '').length < 10) throw new GalatPengguna(400, 'Sandi awal minimal 10 karakter.');
+  const sandi = String(m.sandi || '');
+  if (sandi && sandi.length < 10) throw new GalatPengguna(400, 'Sandi awal minimal 10 karakter, atau kosongkan bila anggota masuk dengan Google.');
   const pengguna = await baca('pengguna', []);
   if (pengguna.some(u => u.email === email)) throw new GalatPengguna(409, 'Email itu sudah terdaftar.');
-  const garam = crypto.randomBytes(16).toString('hex');
-  pengguna.push({ email, nama: teks(m.nama, 60) || email, peran: m.peran === 'admin' ? 'admin' : 'pengurus',
-    garam, hash: hashSandi(String(m.sandi), garam), dibuat: new Date().toISOString(), wajibGantiSandi: true });
+  const akun = { email, nama: teks(m.nama, 60) || email, peran: m.peran === 'admin' ? 'admin' : 'pengurus', dibuat: new Date().toISOString() };
+  if (sandi) {
+    akun.garam = crypto.randomBytes(16).toString('hex');
+    akun.hash = hashSandi(sandi, akun.garam);
+    akun.wajibGantiSandi = true;
+  }
+  pengguna.push(akun);
   await tulis('pengguna', pengguna);
   return { ok: true };
 });
@@ -768,6 +956,7 @@ daftar('POST', /^\/api\/pengurus\/listing$/, async ({ req }) => {
   if (!l.judul) l.judul = (l.jenis === 'jual' ? 'Dijual ' : 'Disewakan ') + l.tipe.charAt(0).toUpperCase() + l.tipe.slice(1) + (l.lokasi.area ? ' di ' + l.lokasi.area : '');
   l.dibuat = l.diubah = new Date().toISOString().slice(0, 19);
   l.oleh = saya.email;
+  if (m.internal) l.internal = rapikanInternal(m.internal, null, saya.email);
   semua.push(l);
   await tulis('listing', semua);
   return { listing: l };
@@ -780,6 +969,7 @@ daftar('PUT', /^\/api\/pengurus\/listing\/([A-Za-z0-9-]{3,16})$/, async ({ req, 
   const i = semua.findIndex(x => x.kode === cocok[1]);
   if (i < 0) throw new GalatPengguna(404, 'Listing tidak ditemukan.');
   const l = rapikanListing(m, semua[i]);
+  if (m.internal) l.internal = rapikanInternal(m.internal, semua[i].internal, saya.email);
   l.kode = semua[i].kode;
   l.diubah = new Date().toISOString().slice(0, 19);
   l.oleh = saya.email;

@@ -1,4 +1,5 @@
-import { API, esc, fotoKecil, labelHarga, rupiahPenuh, tempat, tipeLabel, namaKab, tampilPesan, AKAR } from './inti.js';
+import { API, esc, fotoKecil, labelHarga, rupiahPenuh, tempat, tipeLabel, namaKab, tampilPesan, AKAR, hrefListing } from './inti.js';
+import * as akunFb from './akun.js';
 
 const WILAYAH = {
   'Bali': ['Kota Denpasar', 'Kabupaten Badung', 'Kabupaten Gianyar', 'Kabupaten Tabanan', 'Kabupaten Klungkung', 'Kabupaten Bangli', 'Kabupaten Karangasem', 'Kabupaten Buleleng', 'Kabupaten Jembrana'],
@@ -13,15 +14,29 @@ const CARA = { kantor: 'di kantor', lokasi: 'di lokasi', online: 'panggilan vide
 
 let token = '';
 try { token = localStorage.getItem('sewain.token') || ''; } catch (_) {}
+// Anggota tim boleh masuk dengan Google (Firebase). Token Firebase berumur
+// satu jam, jadi selalu diminta ulang lewat akunFb.token() sebelum memanggil API.
+let modeGoogle = false;
+try { modeGoogle = localStorage.getItem('sewain.pengurus.google') === '1'; } catch (_) {}
+const tokenSaatIni = async () => (modeGoogle ? await akunFb.token() : token);
 let saya = null, semuaListing = [], semuaJadwal = [], saringJadwal = 'mendatang', saringListing = 'semua';
 // Kanal sosmed yang dilacak. Facebook sengaja tidak ada: Instagram Sewain
 // meneruskan postingannya ke Facebook secara otomatis.
 const KANAL = [['instagram', 'IG', 'Instagram'], ['tiktok', 'TT', 'TikTok']];
 const belumDiposting = l => l.terbit !== false && KANAL.some(([k]) => !l.posting?.[k]);
+const hariKe = tgl => Math.ceil((Date.parse(tgl + 'T00:00:00') - Date.now()) / 864e5);
+const kontrakSegera = l => { const b = l.internal?.penyewa?.berakhir; return !!b && hariKe(b) <= 60; };
+const titipanBaru = l => !!l.titipan && l.terbit === false;
+const mentahBelum = l => (l.internal?.mentah || []).some(x => !x.diolah);
+const SARING = { semua: () => true, belum: belumDiposting, draf: l => l.terbit === false, titipan: titipanBaru, kontrak: kontrakSegera, mentah: mentahBelum };
+const KOSONG = { belum: 'Semua listing sudah diposting.', titipan: 'Tidak ada titipan yang menunggu pemeriksaan.', kontrak: 'Tidak ada kontrak yang berakhir dalam 60 hari.', mentah: 'Semua bahan mentah sudah diolah.' };
+const tglPendek = t => new Date(t + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+const waTautan = t => 'https://wa.me/' + String(t).replace(/^0/, '62').replace(/^\+/, '');
 const $ = id => document.getElementById(id);
 
 async function panggil(jalur, opsi = {}) {
-  const kepala = Object.assign({}, opsi.headers, token ? { Authorization: 'Bearer ' + token } : {});
+  const t = await tokenSaatIni();
+  const kepala = Object.assign({}, opsi.headers, t ? { Authorization: 'Bearer ' + t } : {});
   if (opsi.json !== undefined) { kepala['Content-Type'] = 'application/json'; opsi.body = JSON.stringify(opsi.json); }
   let r;
   try { r = await fetch(API + jalur, { method: opsi.method || 'GET', headers: kepala, body: opsi.body }); }
@@ -40,8 +55,9 @@ function tampilkan(layar) {
 
 function keluar() {
   if (token) fetch(API + '/api/pengurus/keluar', { method: 'POST', headers: { Authorization: 'Bearer ' + token } }).catch(() => {});
-  token = ''; saya = null;
-  try { localStorage.removeItem('sewain.token'); } catch (_) {}
+  if (modeGoogle) akunFb.keluar().catch(() => {});
+  token = ''; saya = null; modeGoogle = false;
+  try { localStorage.removeItem('sewain.token'); localStorage.removeItem('sewain.pengurus.google'); } catch (_) {}
   $('akun-kepala').innerHTML = '';
   tampilkan('layar-masuk');
 }
@@ -59,6 +75,27 @@ $('form-masuk').addEventListener('submit', async e => {
     await mulai(r.pengurus);
   } catch (err) { tampilPesan(pesan, 'galat', err.message); }
   finally { tombol.disabled = false; }
+});
+
+$('masuk-google-panel').addEventListener('click', async e => {
+  const pesan = $('form-masuk').querySelector('.pesan');
+  e.target.disabled = true;
+  try {
+    await akunFb.masukGoogle();
+    modeGoogle = true;
+    try { localStorage.setItem('sewain.pengurus.google', '1'); } catch (_) {}
+    const r = await panggil('/api/pengurus/saya');
+    await mulai(r.pengurus);
+  } catch (err) {
+    const email = akunFb.pengguna()?.email;
+    modeGoogle = false;
+    try { localStorage.removeItem('sewain.pengurus.google'); } catch (_) {}
+    await akunFb.keluar().catch(() => {});
+    tampilPesan(pesan, 'galat', err.status === 401 || /Sesi/.test(err.message)
+      ? (email || 'Akun Google itu') + ' belum terdaftar sebagai pengurus. Minta admin menambahkannya di tab Akun, lalu coba lagi.'
+      : err.message);
+    $('layar-masuk').hidden = false;
+  } finally { e.target.disabled = false; }
 });
 
 async function gantiSandi(f) {
@@ -84,9 +121,11 @@ async function mulai(pengurus) {
   $('tombol-keluar').onclick = keluar;
   if (saya.wajibGantiSandi) return tampilkan('layar-sandi');
   $('kelola-akun').hidden = saya.peran !== 'admin';
+  $('form-sandi').hidden = !!saya.lewatGoogle;
+  $('kelola-pelanggan').hidden = saya.peran !== 'admin';
   tampilkan('layar-panel');
   await Promise.all([muatListing(), muatJadwal()]);
-  if (saya.peran === 'admin') muatAkun();
+  if (saya.peran === 'admin') { muatAkun(); muatPelanggan(); }
 }
 
 // ---------------------------------------------------------------- tab
@@ -102,13 +141,15 @@ async function muatListing() {
 }
 function gambarTabel() {
   const kata = $('cari-listing').value.trim().toLowerCase();
-  const n = semuaListing.filter(belumDiposting).length;
-  $('lencana-belum').hidden = !n; $('lencana-belum').textContent = n;
+  for (const k of ['belum', 'titipan', 'kontrak', 'mentah']) {
+    const n = semuaListing.filter(SARING[k]).length, el = $('lencana-' + k);
+    if (el) { el.hidden = !n; el.textContent = n; }
+  }
   const daftar = semuaListing
-    .filter(l => saringListing === 'semua' || (saringListing === 'draf' ? l.terbit === false : belumDiposting(l)))
+    .filter(SARING[saringListing] || SARING.semua)
     .filter(l => !kata || [l.kode, l.judul, l.lokasi?.area, l.lokasi?.kabupaten].join(' ').toLowerCase().includes(kata));
   $('tabel-listing').innerHTML = `
-    <thead><tr><th></th><th>Kode</th><th>Properti</th><th>Harga</th><th>Status</th><th>Tayang</th><th>Sosmed</th><th></th></tr></thead>
+    <thead><tr><th></th><th>Kode</th><th>Properti</th><th>Harga</th><th>Status</th><th>Pendataan</th><th>Tayang</th><th>Sosmed</th><th></th></tr></thead>
     <tbody>${daftar.map(l => {
       const h = labelHarga(l);
       return `<tr>
@@ -116,7 +157,18 @@ function gambarTabel() {
         <td><span class="plakat" style="font-size:13px">${esc(l.kode)}</span></td>
         <td><b>${esc(l.judul)}</b><br><small>${esc(tempat(l))} · ${(l.foto || []).length} foto · ${(l.video || []).length} video${l.oleh ? ' · diunggah ' + esc(l.oleh.split('@')[0]) : ''}</small></td>
         <td>${h.angka ? esc((h.mulai ? 'mulai ' : '') + h.angka + ' ' + h.satuan) : '<small>belum diisi</small>'}</td>
-        <td><span class="status status--${esc(l.status || 'tersedia')}">${esc(STATUS[l.status || 'tersedia'])}</span></td>
+        <td><span class="status status--${esc(l.status || 'tersedia')}">${esc(STATUS[l.status || 'tersedia'])}</span>${titipanBaru(l) ? '<br><span class="status status--ditahan" style="margin-top:4px">Titipan baru</span>' : ''}</td>
+        <td class="pendataan">${(() => {
+          const i = l.internal || {}, pm = i.pemilik || {}, py = i.penyewa || {}, b = [];
+          if (pm.nama || pm.telepon) b.push(`<span>Pemilik: <b>${esc(pm.nama || '—')}</b>${pm.telepon ? ` · <a href="${waTautan(pm.telepon)}" target="_blank" rel="noopener">${esc(pm.telepon)}</a>` : ''}</span>`);
+          if (py.nama || py.berakhir) {
+            const h = py.berakhir ? hariKe(py.berakhir) : null;
+            b.push(`<span>${l.jenis === 'jual' ? 'Pembeli' : 'Penyewa'}: <b>${esc(py.nama || '—')}</b>${py.berakhir ? ` · s.d. ${esc(tglPendek(py.berakhir))} <em class="${h <= 60 ? 'tanda-kontrak' : ''}">${h < 0 ? 'lewat ' + -h + ' hari' : h + ' hari lagi'}</em>` : ''}</span>`);
+          }
+          const m = (i.mentah || []).filter(x => !x.diolah).length;
+          if (m) b.push(`<span class="tanda-mentah">${m} bahan mentah belum diolah</span>`);
+          return b.join('') || '<small>Belum didata</small>';
+        })()}</td>
         <td>${l.terbit === false ? '<small>Draf</small>' : 'Ya'}${l.unggulan ? ' · ★' : ''}</td>
         <td class="kanal-posting">${KANAL.map(([k, singkat, nama]) => {
           const p = l.posting?.[k];
@@ -127,7 +179,7 @@ function gambarTabel() {
           <button class="tombol tombol--garis tombol--kecil" data-ubah="${esc(l.kode)}">Ubah</button>
           <button class="tombol tombol--garis tombol--kecil" data-sosmed="${esc(l.kode)}">Sosmed</button>
         </td></tr>`;
-    }).join('') || `<tr><td colspan="8">${saringListing === 'belum' ? 'Semua listing sudah diposting.' : 'Tidak ada listing yang cocok.'}</td></tr>`}</tbody>`;
+    }).join('') || `<tr><td colspan="9">${KOSONG[saringListing] || 'Tidak ada listing yang cocok.'}</td></tr>`}</tbody>`;
 }
 $('cari-listing').addEventListener('input', gambarTabel);
 $('tabel-listing').addEventListener('click', e => {
@@ -187,6 +239,8 @@ function bukaSunting(l) {
     jenis: 'sewa', tipe: 'ruko', status: 'tersedia', terbit: true, unggulan: false,
     lokasi: { provinsi: 'Bali' }, spesifikasi: {}, fitur: [], deskripsi: [], foto: [], video: [], periode: 'tahun',
   }));
+  sunting.internal = Object.assign({ pemilik: {}, penyewa: {}, catatan: '', mentah: [] }, sunting.internal || {});
+  const pm = sunting.internal.pemilik || {}, py = sunting.internal.penyewa || {}, tt = sunting.titipan;
   const s = sunting.spesifikasi || {}, lk = sunting.lokasi || { provinsi: 'Bali' };
   const cek = (nilai, daftar) => daftar.includes(nilai) ? 'checked' : '';
   $('layar-sunting').innerHTML = `
@@ -226,6 +280,13 @@ function bukaSunting(l) {
             <div style="display:flex;gap:8px"><input class="masukan" id="tautan-video" placeholder="https://youtube.com/… atau instagram.com/reel/…"><button class="tombol tombol--kecil" type="button" id="tambah-tautan-video">Tambah</button></div>
           </div>
           <div class="kemajuan" id="kemajuan-video" hidden><span></span></div>
+        </fieldset>
+
+        <fieldset class="langkah"><h2>Bahan mentah <small class="bantu" style="font-family:var(--f-teks);letter-spacing:0">tidak tayang</small></h2>
+          <p class="bantu">Foto dan video asli dari lapangan, disimpan apa adanya tanpa diperkecil, untuk diedit lalu diposting. Centang "sudah diolah" setelah dipakai, supaya daftar "Bahan mentah" di panel tetap rapi.</p>
+          <div id="daftar-mentah"></div>
+          <label class="tombol tombol--garis tombol--kecil" style="margin-top:12px">+ Unggah bahan mentah<input type="file" id="pilih-mentah" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" multiple hidden></label>
+          <div class="kemajuan" id="kemajuan-mentah" hidden><span></span></div>
         </fieldset>
 
         <fieldset class="langkah"><h2>Deskripsi</h2>
@@ -276,6 +337,30 @@ function bukaSunting(l) {
             <label><input type="checkbox" name="furnitur" ${s.furnitur ? 'checked' : ''}> Furnitur</label></div>
         </fieldset>
 
+        <fieldset class="langkah"><h2>Pendataan <small class="bantu" style="font-family:var(--f-teks);letter-spacing:0">hanya untuk pengurus</small></h2>
+          ${tt ? `<div class="catatan-titipan"><b>Titipan dari pemilik</b> · diterima ${esc(String(tt.diterima || '').slice(0, 10))}<br>${esc(tt.nama || '')} · <a href="${waTautan(tt.telepon)}" target="_blank" rel="noopener">${esc(tt.telepon)}</a>${tt.email ? ' · ' + esc(tt.email) : ''}${tt.catatan ? `<br><small>${esc(tt.catatan)}</small>` : ''}</div>` : ''}
+          <h3 class="sub-pendataan">Pemilik</h3>
+          <div class="baris-medan">
+            <label class="medan"><span>Nama</span><input class="masukan" name="pmNama" maxlength="80" value="${esc(pm.nama || '')}"></label>
+            <label class="medan"><span>WhatsApp</span><input class="masukan" name="pmTelepon" inputmode="tel" value="${esc(pm.telepon || '')}" placeholder="0812xxxxxxx"></label>
+            <label class="medan"><span>Email</span><input class="masukan" name="pmEmail" type="email" value="${esc(pm.email || '')}"></label>
+          </div>
+          <label class="medan" style="margin-top:12px"><span>Alamat lengkap properti</span><input class="masukan" name="pmAlamat" maxlength="240" value="${esc(pm.alamat || '')}"></label>
+          <h3 class="sub-pendataan" id="judul-penyewa">${sunting.jenis === 'jual' ? 'Pembeli' : 'Penyewa saat ini'}</h3>
+          <div class="baris-medan">
+            <label class="medan"><span>Nama</span><input class="masukan" name="pyNama" maxlength="80" value="${esc(py.nama || '')}"></label>
+            <label class="medan"><span>WhatsApp</span><input class="masukan" name="pyTelepon" inputmode="tel" value="${esc(py.telepon || '')}"></label>
+          </div>
+          <div class="baris-medan" style="margin-top:12px">
+            <label class="medan"><span>Kontrak mulai</span><input class="masukan" name="pyMulai" type="date" value="${esc(py.mulai || '')}"></label>
+            <label class="medan"><span>Kontrak berakhir</span><input class="masukan" name="pyBerakhir" type="date" value="${esc(py.berakhir || '')}"><small id="sisa-kontrak"></small></label>
+            <label class="medan"><span>Nilai kontrak (Rp)</span><input class="masukan" name="pyNilai" type="number" min="0" step="1000000" value="${py.nilai ?? ''}"></label>
+          </div>
+          <label class="medan" style="margin-top:12px"><span>Catatan kontrak</span><textarea class="masukan" name="pyCatatan" rows="2" maxlength="600" placeholder="mis. Penyewa berminat memperpanjang, tanyakan 2 bulan sebelum berakhir.">${esc(py.catatan || '')}</textarea></label>
+          <label class="medan" style="margin-top:12px"><span>Catatan internal</span><textarea class="masukan" name="catatanInternal" rows="3" maxlength="2000" placeholder="Hasil survei, kondisi bangunan, komisi yang disepakati, dan lain-lain.">${esc(sunting.internal.catatan || '')}</textarea></label>
+          <p class="bantu" style="margin:10px 0 0">Kontrak yang berakhir dalam 60 hari muncul di saringan "Kontrak segera berakhir" supaya penyewa bisa ditawari perpanjangan.</p>
+        </fieldset>
+
         <fieldset class="langkah"><h2>Penayangan</h2>
           <label style="display:flex;gap:8px"><input type="checkbox" name="terbit" ${sunting.terbit !== false ? 'checked' : ''}> Tayangkan di situs</label>
           <label style="display:flex;gap:8px;margin-top:8px"><input type="checkbox" name="unggulan" ${sunting.unggulan ? 'checked' : ''}> Jadikan unggulan (tampil paling atas)</label>
@@ -287,7 +372,7 @@ function bukaSunting(l) {
             <button class="tombol" type="submit" style="flex:1">${l ? 'Simpan perubahan' : 'Simpan listing'}</button>
             ${l && saya.peran === 'admin' ? '<button class="tombol tombol--garis" type="button" id="hapus-listing" style="color:var(--merah);border-color:var(--merah)">Hapus</button>' : ''}
           </div>
-          ${l ? `<a class="tautan-panah" style="font-size:14px;display:inline-block;margin-top:10px" href="${AKAR}listing/?kode=${encodeURIComponent(l.kode)}" target="_blank" rel="noopener">Lihat di situs →</a>` : ''}
+          ${l ? `<a class="tautan-panah" style="font-size:14px;display:inline-block;margin-top:10px" href="${hrefListing(l)}" target="_blank" rel="noopener">Lihat di situs →</a>` : ''}
         </div>
       </div>
     </form>`;
@@ -304,7 +389,11 @@ function bukaSunting(l) {
   f.jenis.addEventListener('change', () => { if (f.jenis.value === 'jual') f.periode.value = ''; else if (!f.periode.value) f.periode.value = 'tahun'; });
   $('kembali').onclick = () => { tampilkan('layar-panel'); muatListing(); };
 
-  gambarFoto(); gambarVideo(); gambarFitur();
+  gambarFoto(); gambarVideo(); gambarFitur(); gambarMentah();
+  $('pilih-mentah').addEventListener('change', e => unggahMentah([...e.target.files]).finally(() => { e.target.value = ''; }));
+  const sisa = () => { const v = f.pyBerakhir.value; $('sisa-kontrak').textContent = v ? (hariKe(v) < 0 ? 'Sudah lewat ' + -hariKe(v) + ' hari' : hariKe(v) + ' hari lagi') : ''; };
+  f.pyBerakhir.addEventListener('input', sisa); sisa();
+  f.jenis.addEventListener('change', () => { $('judul-penyewa').textContent = f.jenis.value === 'jual' ? 'Pembeli' : 'Penyewa saat ini'; });
   $('tambah-fitur').onclick = () => { simpanFiturDariForm(); sunting.fitur.push({ judul: '', isi: '' }); gambarFitur(); };
   $('pilih-foto').addEventListener('change', e => unggahFoto([...e.target.files]).finally(() => { e.target.value = ''; }));
   $('pilih-video').addEventListener('change', e => unggahVideo(e.target.files[0]).finally(() => { e.target.value = ''; }));
@@ -378,14 +467,51 @@ function simpanFiturDariForm() {
   }));
 }
 
+function gambarMentah() {
+  const m = sunting.internal.mentah;
+  $('daftar-mentah').innerHTML = m.map((x, i) => `
+    <div class="baris-mentah${x.diolah ? ' baris-mentah--diolah' : ''}">
+      ${x.jenis === 'foto' ? `<a href="${esc(x.url)}" target="_blank" rel="noopener"><img src="${esc(x.url)}" alt="" loading="lazy"></a>` : `<a class="mentah-video" href="${esc(x.url)}" target="_blank" rel="noopener">Video</a>`}
+      <span><b>${esc(x.nama || (x.jenis === 'foto' ? 'Foto' : 'Video'))}</b><br><small>${esc(String(x.waktu || '').slice(0, 10))}${x.oleh ? ' · ' + esc(String(x.oleh).split('@')[0]) : ''}</small></span>
+      <span class="mentah-aksi">
+        <label><input type="checkbox" data-diolah="${i}" ${x.diolah ? 'checked' : ''}> Sudah diolah</label>
+        ${x.jenis === 'foto' ? `<button class="tombol tombol--garis tombol--kecil" type="button" data-tayangkan="${i}" ${sunting.foto.includes(x.url) ? 'disabled' : ''}>${sunting.foto.includes(x.url) ? 'Sudah di galeri' : 'Tambahkan ke galeri'}</button>`
+          : `<button class="tombol tombol--garis tombol--kecil" type="button" data-tayangkan="${i}" ${sunting.video.some(v => v.url === x.url) ? 'disabled' : ''}>${sunting.video.some(v => v.url === x.url) ? 'Sudah tayang' : 'Tayangkan video'}</button>`}
+        <button class="tombol tombol--garis tombol--kecil" type="button" data-buang-mentah="${i}" aria-label="Keluarkan dari daftar">×</button>
+      </span>
+    </div>`).join('') || '<p class="bantu" style="margin:0">Belum ada bahan mentah.</p>';
+  $('daftar-mentah').onclick = e => {
+    const d = e.target.closest('[data-diolah]'), t = e.target.closest('[data-tayangkan]'), b = e.target.closest('[data-buang-mentah]');
+    if (d) { m[+d.dataset.diolah].diolah = d.checked; gambarMentah(); }
+    if (t) { const x = m[+t.dataset.tayangkan]; if (x.jenis === 'foto') { sunting.foto.push(x.url); gambarFoto(); } else { sunting.video.push({ url: x.url }); gambarVideo(); } gambarMentah(); }
+    if (b && confirm('Keluarkan bahan ini dari daftar? Berkasnya tetap tersimpan.')) { m.splice(+b.dataset.buangMentah, 1); gambarMentah(); }
+  };
+}
+
+async function unggahMentah(berkas) {
+  const pesan = $('pesan-sunting');
+  for (let i = 0; i < berkas.length; i++) {
+    const b = berkas[i], video = /^video\//.test(b.type);
+    if (b.size > (video ? 300 : 15) * 1048576) { tampilPesan(pesan, 'galat', b.name + ' melebihi batas ' + (video ? '300' : '15') + ' MB.'); continue; }
+    try {
+      const r = await kirimBerkas(b, b.name, p => tampilKemajuan('kemajuan-mentah', p, `Mengunggah ${i + 1} dari ${berkas.length}: ${Math.round(p * 100)}%`));
+      sunting.internal.mentah.push({ url: r.url, jenis: r.jenis, nama: b.name, diolah: false, waktu: new Date().toISOString().slice(0, 19), oleh: saya.email });
+      gambarMentah();
+    } catch (err) { tampilPesan(pesan, 'galat', err.message); }
+  }
+  tampilKemajuan('kemajuan-mentah', null);
+  tampilPesan(pesan, 'ok', 'Bahan mentah terunggah. Tekan simpan supaya tercatat.');
+}
+
 // ---------- unggahan
-function kirimBerkas(berkas, nama, kemajuan) {
+async function kirimBerkas(berkas, nama, kemajuan) {
+  const t = await tokenSaatIni();
   return new Promise((ok, gagal) => {
     const fd = new FormData();
     fd.append('berkas', berkas, nama);
     const x = new XMLHttpRequest();
     x.open('POST', API + '/api/pengurus/media');
-    x.setRequestHeader('Authorization', 'Bearer ' + token);
+    x.setRequestHeader('Authorization', 'Bearer ' + t);
     x.upload.onprogress = e => { if (e.lengthComputable && kemajuan) kemajuan(e.loaded / e.total); };
     x.onload = () => {
       let d = {};
@@ -460,6 +586,13 @@ async function simpan(f, lama) {
     fitur: sunting.fitur.filter(x => x.judul.trim() && x.isi.trim()),
     deskripsi: f.deskripsi.value.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean),
     foto: sunting.foto, video: sunting.video, terbit: f.terbit.checked, unggulan: f.unggulan.checked,
+    internal: {
+      pemilik: { nama: f.pmNama.value.trim(), telepon: f.pmTelepon.value.trim(), email: f.pmEmail.value.trim(), alamat: f.pmAlamat.value.trim() },
+      penyewa: { nama: f.pyNama.value.trim(), telepon: f.pyTelepon.value.trim(), mulai: f.pyMulai.value, berakhir: f.pyBerakhir.value,
+        nilai: f.pyNilai.value === '' ? null : Number(f.pyNilai.value), catatan: f.pyCatatan.value.trim() },
+      catatan: f.catatanInternal.value.trim(),
+      mentah: sunting.internal.mentah,
+    },
   };
   const pesan = $('pesan-sunting'), tombol = f.querySelector('[type=submit]');
   tombol.disabled = true;
@@ -526,7 +659,7 @@ document.querySelectorAll('[data-saring-jadwal]').forEach(b => b.addEventListene
 async function muatAkun() {
   try {
     const r = await panggil('/api/pengurus/akun');
-    $('daftar-akun').innerHTML = r.akun.map(a => `<div class="baris-video"><span><b>${esc(a.nama)}</b> · ${esc(a.email)} · ${esc(a.peran)}</span>
+    $('daftar-akun').innerHTML = r.akun.map(a => `<div class="baris-video"><span><b>${esc(a.nama)}</b> · ${esc(a.email)} · ${esc(a.peran)} · <small>${a.pakaiSandi ? 'sandi atau Google' : 'Google'}</small></span>
       ${a.email !== saya.email ? `<button class="tombol tombol--garis tombol--kecil" type="button" data-hapus-akun="${esc(a.email)}">Hapus</button>` : '<small>Anda</small>'}</div>`).join('');
   } catch (err) { $('daftar-akun').textContent = err.message; }
 }
@@ -540,14 +673,29 @@ $('form-akun').addEventListener('submit', async e => {
   const f = e.target, pesan = f.querySelector('.pesan');
   try {
     await panggil('/api/pengurus/akun', { method: 'POST', json: { nama: f.nama.value, email: f.email.value, sandi: f.sandi.value, peran: f.peran.value } });
-    tampilPesan(pesan, 'ok', 'Akun dibuat. Berikan email dan sandi awal kepada pengurus itu — ia wajib menggantinya saat pertama masuk.');
+    tampilPesan(pesan, 'ok', f.sandi.value ? 'Akun dibuat. Berikan email dan sandi awal kepada anggota itu; ia wajib menggantinya saat pertama masuk.' : 'Akun dibuat. Anggota itu sekarang bisa masuk dengan tombol "Masuk dengan Google" memakai email tersebut.');
     f.reset(); muatAkun();
   } catch (err) { tampilPesan(pesan, 'galat', err.message); }
 });
 
+async function muatPelanggan() {
+  const el = $('daftar-pelanggan');
+  if (!el) return;
+  try {
+    const { pelanggan } = await panggil('/api/pengurus/pelanggan');
+    el.innerHTML = pelanggan.length ? `<div class="tabel-wadah"><table class="tabel"><thead><tr><th>Nama</th><th>Email</th><th>WhatsApp</th><th>Favorit</th><th>Daftar</th></tr></thead><tbody>${pelanggan.map(p => `<tr>
+      <td>${esc(p.nama || '—')}</td><td>${esc(p.email || '—')}</td><td>${p.telepon ? `<a href="${waTautan(p.telepon)}" target="_blank" rel="noopener">${esc(p.telepon)}</a>` : '—'}</td>
+      <td>${p.favorit}</td><td><small>${esc(String(p.dibuat).slice(0, 10))} · ${esc(p.penyedia === 'google.com' ? 'Google' : 'Email')}</small></td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="bantu" style="margin:0">Belum ada pengunjung yang membuat akun.</p>';
+  } catch (err) { el.textContent = err.message; }
+}
+
 // ---------------------------------------------------------------- awal
 (async () => {
-  if (!token) return tampilkan('layar-masuk');
+  if (modeGoogle) {
+    await akunFb.muatAuth();
+    if (!akunFb.pengguna()) { modeGoogle = false; try { localStorage.removeItem('sewain.pengurus.google'); } catch (_) {} return tampilkan('layar-masuk'); }
+  } else if (!token) return tampilkan('layar-masuk');
   try { await mulai((await panggil('/api/pengurus/saya')).pengurus); }
   catch (_) { tampilkan('layar-masuk'); }
 })();

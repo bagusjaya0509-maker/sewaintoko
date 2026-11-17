@@ -1,7 +1,7 @@
 import { api, ambilSatu, ambilListing, kartuListing, esc, fotoKecil, labelHarga, rupiahPenuh, tempat, tipeLabel, namaKab, tautanWA, tampilPesan, AKAR } from './inti.js';
 
 const isi = document.getElementById('isi');
-const kode = new URLSearchParams(location.search).get('kode');
+const kode = document.body.dataset.kode || new URLSearchParams(location.search).get('kode');
 
 function videoTanam(v) {
   const u = v.url;
@@ -71,7 +71,10 @@ function render(l) {
         <h1 class="judul-1">${esc(l.judul)}</h1>
         <p class="kartu-lokasi" style="font-size:15px;margin:12px 0 0">${esc([l.lokasi?.alamat, tempat(l), l.lokasi?.provinsi].filter(Boolean).join(', '))}</p>
       </div>
-      <button class="tombol tombol--garis tombol--kecil" type="button" id="bagikan">Bagikan</button>
+      <div style="display:flex;gap:8px">
+        <button class="tombol tombol--garis tombol--kecil" type="button" data-favorit="${esc(l.kode)}" aria-pressed="false">Simpan</button>
+        <button class="tombol tombol--garis tombol--kecil" type="button" id="bagikan">Bagikan</button>
+      </div>
     </div>
     ${galeri}
     <div class="detail-susun">

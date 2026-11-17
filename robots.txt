@@ -1,3 +1,6 @@
 User-agent: *
-Disallow: /sewaintoko/pengurus/
-Sitemap: https://bagusjaya0509-maker.github.io/sewaintoko/sitemap.xml
+Disallow: /pengurus/
+Disallow: /akun/
+Allow: /
+
+Sitemap: https://www.sewatoko.com/sitemap.xml

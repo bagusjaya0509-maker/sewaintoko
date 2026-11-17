@@ -1,4 +1,4 @@
-import { ambilListing, kartuListing, esc, fotoKecil, labelHarga, rupiahRingkas, tempat, namaKab, AKAR } from './inti.js';
+import { ambilListing, kartuListing, esc, fotoKecil, labelHarga, rupiahRingkas, tempat, namaKab, AKAR, hrefListing } from './inti.js';
 
 const WILAYAH = {
   'Bali': ['Kota Denpasar', 'Kabupaten Badung', 'Kabupaten Gianyar', 'Kabupaten Tabanan', 'Kabupaten Klungkung', 'Kabupaten Bangli', 'Kabupaten Karangasem', 'Kabupaten Buleleng', 'Kabupaten Jembrana'],
@@ -140,7 +140,7 @@ function gambarPeta() {
     m.bindPopup(`<div class="popup-listing">
       ${l.foto && l.foto[0] ? `<img src="${esc(fotoKecil(l.foto[0], 480))}" alt="">` : ''}
       <span class="plakat" style="font-size:12px">${esc(l.kode)}</span>
-      <p style="margin:8px 0 2px"><a href="${AKAR}listing/?kode=${encodeURIComponent(l.kode)}">${esc(l.judul)}</a></p>
+      <p style="margin:8px 0 2px"><a href="${hrefListing(l)}">${esc(l.judul)}</a></p>
       <p style="margin:0;color:var(--lumut);font-size:13px">${esc(tempat(l))} · ${h.angka ? esc((h.mulai ? 'mulai ' : '') + h.angka + ' ' + h.satuan) : 'Harga: hubungi kami'}</p>
     </div>`);
     lapisPenanda.addLayer(m);
