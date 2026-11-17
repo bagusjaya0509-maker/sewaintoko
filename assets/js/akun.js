@@ -101,6 +101,10 @@ export async function keluar() {
 }
 
 export async function token() {
+  // Kalau pengguna sudah diketahui, JANGAN menunggu muatAuth(): fungsi ini juga
+  // dipanggil dari dalam onAuthStateChanged pertama, padahal muatAuth() baru
+  // selesai SETELAH callback itu selesai -> saling menunggu, halaman macet.
+  if (penggunaKini) return penggunaKini.getIdToken();
   await muatAuth();
   return penggunaKini ? penggunaKini.getIdToken() : null;
 }

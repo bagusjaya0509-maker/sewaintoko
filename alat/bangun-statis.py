@@ -57,9 +57,9 @@ def halaman(*, judul, deskripsi, kanonik, kedalaman, isi, kepala_tambahan='', bo
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-{kepala_tambahan}<link rel="stylesheet" href="{akar}assets/css/sewain.css">
-<link rel="stylesheet" href="{akar}assets/css/sewain-v2.css">
-<link rel="stylesheet" href="{akar}assets/css/sewain-v3.css">
+{kepala_tambahan}<link rel="stylesheet" href="{akar}assets/css/sewain.css?v=20261117c">
+<link rel="stylesheet" href="{akar}assets/css/sewain-v2.css?v=20261117c">
+<link rel="stylesheet" href="{akar}assets/css/sewain-v3.css?v=20261117c">
 </head>
 <body data-akar="{akar}"{body_attr}>
 
@@ -69,7 +69,7 @@ def halaman(*, judul, deskripsi, kanonik, kedalaman, isi, kepala_tambahan='', bo
 
 <footer class="kaki" data-kerangka></footer>
 
-{skrip or f'<script type="module" src="{akar}assets/js/inti.js"></script>'}
+{skrip or f'<script type="module" src="{akar}assets/js/inti.js?v=20261117c"></script>'}
 </body>
 </html>
 '''
@@ -282,7 +282,7 @@ def bangun_listing(semua):
   </div>
 </main>'''
         skrip = '''<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="../../assets/js/listing.js"></script>'''
+<script type="module" src="../../assets/js/listing.js?v=20261117c"></script>'''
         sorot = '''<div class="sorot" id="sorot" role="dialog" aria-modal="true" aria-label="Foto properti">
   <img alt="">
   <button class="tutup" type="button" aria-label="Tutup">×</button>
