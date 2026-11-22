@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="../assets/css/sewain.css?v=20261117d">
 <link rel="stylesheet" href="../assets/css/sewain-v2.css?v=20261117d">
-<link rel="stylesheet" href="../assets/css/sewain-v3.css?v=20261117g">
+<link rel="stylesheet" href="../assets/css/sewain-v3.css?v=20261122a">
 </head>
 <body data-akar="../" class="panel" data-tanpa-wa>
 
@@ -67,6 +67,7 @@
   <section id="layar-panel" hidden>
     <div class="tab-pengurus" role="tablist">
       <button role="tab" data-tab="listing" aria-selected="true">Listing</button>
+      <button role="tab" data-tab="bahan" aria-selected="false">Bahan posting <span class="lencana" id="lencana-bahan" hidden></span></button>
       <button role="tab" data-tab="jadwal" aria-selected="false">Jadwal tamu <span class="lencana" id="lencana-jadwal" hidden></span></button>
       <button role="tab" data-tab="akun" aria-selected="false">Akun</button>
     </div>
@@ -85,6 +86,30 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tombol tombol--garis" type="button" id="unduh-excel">Unduh Excel</button><button class="tombol" type="button" id="tambah-listing">+ Tambah listing</button></div>
       </div>
       <div class="tabel-wadah"><table class="tabel" id="tabel-listing"></table></div>
+    </div>
+
+    <div id="tab-bahan" hidden>
+      <form class="langkah" id="form-bahan" style="margin-bottom:18px">
+        <h2>Unggah bahan posting</h2>
+        <p class="bantu" style="margin-top:0">Tulis nama properti, isi keterangannya, lalu pilih foto dan video. Tiap unggahan disimpan di folder sendiri sesuai nama yang Anda tulis.</p>
+        <div style="display:grid;gap:14px">
+          <label class="medan"><span>Nama properti / nama folder</span><input class="masukan" name="nama" maxlength="100" required placeholder="Contoh: Ruko 3 lantai Jl. Gatot Subroto Denpasar"></label>
+          <label class="medan"><span>Keterangan &amp; detail properti</span><textarea class="masukan" name="keterangan" rows="5" maxlength="4000" placeholder="Lokasi, ukuran, jumlah kamar, harga, kontak pemilik, catatan untuk caption…"></textarea></label>
+          <label class="medan"><span>Foto &amp; video</span><input class="masukan" type="file" id="pilih-bahan" accept="image/*,video/*" multiple></label>
+          <p class="bantu" id="ringkas-bahan" style="margin:-6px 0 0">Belum ada berkas dipilih.</p>
+          <div class="kemajuan" id="kemajuan-bahan-baru" hidden><span></span></div>
+          <div class="pesan" role="status"></div>
+          <button class="tombol" type="submit">Unggah ke folder baru</button>
+        </div>
+      </form>
+      <div class="bilah-hasil">
+        <div class="tampilan" role="group" aria-label="Saring bahan">
+          <button type="button" data-saring-bahan="belum" aria-pressed="true">Belum diposting</button>
+          <button type="button" data-saring-bahan="sudah" aria-pressed="false">Sudah diposting</button>
+          <button type="button" data-saring-bahan="semua" aria-pressed="false">Semua</button>
+        </div>
+      </div>
+      <div id="daftar-bahan"><div class="memuat" style="height:60px"></div></div>
     </div>
 
     <div id="tab-jadwal" hidden>
@@ -118,7 +143,7 @@
             </div>
             <div class="baris-medan">
               <label class="medan"><span>Sandi awal <small>(opsional, min. 10)</small></span><input class="masukan" name="sandi" type="text" minlength="10" autocomplete="off" placeholder="Kosongkan bila masuk dengan Google"></label>
-              <label class="medan"><span>Peran</span><select class="masukan" name="peran"><option value="pengurus">Pengurus — kelola listing &amp; jadwal</option><option value="admin">Admin — juga kelola akun &amp; hapus</option></select></label>
+              <label class="medan"><span>Peran</span><select class="masukan" name="peran"><option value="pengurus">Pengurus — kelola listing &amp; jadwal</option><option value="admin">Admin — juga kelola akun &amp; hapus</option><option value="pemilik" id="opsi-pemilik" hidden disabled>Pemilik — admin tertinggi</option></select></label>
             </div>
             <div class="pesan" role="status"></div>
             <button class="tombol tombol--garis" type="submit">Tambah pengurus</button>
@@ -153,6 +178,6 @@
 </dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="../assets/js/pengurus.js?v=20261117f"></script>
+<script type="module" src="../assets/js/pengurus.js?v=20261122a"></script>
 </body>
 </html>

@@ -41,6 +41,8 @@ const PROSES = {
 };
 const rpPendek = n => (n == null ? '—' : rupiahRingkas(n));
 const $ = id => document.getElementById(id);
+const adminKah = () => !!saya && (saya.peran === 'admin' || saya.peran === 'pemilik');
+const LABEL_PERAN = { pemilik: 'Pemilik', admin: 'Admin', pengurus: 'Pengurus' };
 
 async function panggil(jalur, opsi = {}) {
   const t = await tokenSaatIni();
@@ -124,23 +126,24 @@ $('form-sandi').addEventListener('submit', e => { e.preventDefault(); gantiSandi
 async function mulai(pengurus) {
   saya = pengurus;
   const fotoProfil = modeGoogle ? akunFb.pengguna()?.photoURL : null;
-  $('akun-kepala').innerHTML = `${fotoProfil ? `<img src="${esc(fotoProfil)}" alt="" referrerpolicy="no-referrer" style="width:32px;height:32px;border-radius:50%;object-fit:cover">` : ''}<span style="color:var(--lumut)">${esc(saya.nama)} · ${esc(saya.peran)}</span>
+  $('akun-kepala').innerHTML = `${fotoProfil ? `<img src="${esc(fotoProfil)}" alt="" referrerpolicy="no-referrer" style="width:32px;height:32px;border-radius:50%;object-fit:cover">` : ''}<span style="color:var(--lumut)">${esc(saya.nama)} · ${esc(LABEL_PERAN[saya.peran] || saya.peran)}</span>
     <a class="tombol tombol--garis tombol--kecil" href="${AKAR}" target="_blank" rel="noopener">Lihat situs</a>
     <button class="tombol tombol--kecil" type="button" id="tombol-keluar">Keluar</button>`;
   $('tombol-keluar').onclick = keluar;
   if (saya.wajibGantiSandi) return tampilkan('layar-sandi');
-  $('kelola-akun').hidden = saya.peran !== 'admin';
+  $('kelola-akun').hidden = !adminKah();
   $('form-sandi').hidden = !!saya.lewatGoogle;
-  $('kelola-pelanggan').hidden = saya.peran !== 'admin';
+  $('kelola-pelanggan').hidden = !adminKah();
+  $('opsi-pemilik').hidden = $('opsi-pemilik').disabled = saya.peran !== 'pemilik';
   tampilkan('layar-panel');
-  await Promise.all([muatListing(), muatJadwal()]);
-  if (saya.peran === 'admin') { muatAkun(); muatPelanggan(); }
+  await Promise.all([muatListing(), muatJadwal(), muatBahan()]);
+  if (adminKah()) { muatAkun(); muatPelanggan(); }
 }
 
 // ---------------------------------------------------------------- tab
 document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('[data-tab]').forEach(x => x.setAttribute('aria-selected', x === b));
-  for (const t of ['listing', 'jadwal', 'akun']) $('tab-' + t).hidden = t !== b.dataset.tab;
+  for (const t of ['listing', 'bahan', 'jadwal', 'akun']) $('tab-' + t).hidden = t !== b.dataset.tab;
 }));
 
 // ---------------------------------------------------------------- daftar listing
@@ -430,7 +433,7 @@ function bukaSunting(l) {
           <div class="pesan" id="pesan-sunting" role="status"></div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
             <button class="tombol" type="submit" style="flex:1">${l ? 'Simpan perubahan' : 'Simpan listing'}</button>
-            ${l && saya.peran === 'admin' ? '<button class="tombol tombol--garis" type="button" id="hapus-listing" style="color:var(--merah);border-color:var(--merah)">Hapus</button>' : ''}
+            ${l && adminKah() ? '<button class="tombol tombol--garis" type="button" id="hapus-listing" style="color:var(--merah);border-color:var(--merah)">Hapus</button>' : ''}
           </div>
           ${l ? `<a class="tautan-panah" style="font-size:14px;display:inline-block;margin-top:10px" href="${hrefListing(l)}" target="_blank" rel="noopener">Lihat di situs →</a>` : ''}
         </div>
@@ -569,13 +572,13 @@ async function unggahMentah(berkas) {
 }
 
 // ---------- unggahan
-async function kirimBerkas(berkas, nama, kemajuan) {
+async function kirimBerkas(berkas, nama, kemajuan, jalur = '/api/pengurus/media') {
   const t = await tokenSaatIni();
   return new Promise((ok, gagal) => {
     const fd = new FormData();
     fd.append('berkas', berkas, nama);
     const x = new XMLHttpRequest();
-    x.open('POST', API + '/api/pengurus/media');
+    x.open('POST', API + jalur);
     x.setRequestHeader('Authorization', 'Bearer ' + t);
     x.upload.onprogress = e => { if (e.lengthComputable && kemajuan) kemajuan(e.loaded / e.total); };
     x.onload = () => {
@@ -730,8 +733,8 @@ document.querySelectorAll('[data-saring-jadwal]').forEach(b => b.addEventListene
 async function muatAkun() {
   try {
     const r = await panggil('/api/pengurus/akun');
-    $('daftar-akun').innerHTML = r.akun.map(a => `<div class="baris-video"><span><b>${esc(a.nama)}</b> · ${esc(a.email)} · ${esc(a.peran)} · <small>${a.pakaiSandi ? 'sandi atau Google' : 'Google'}</small></span>
-      ${a.email !== saya.email ? `<button class="tombol tombol--garis tombol--kecil" type="button" data-hapus-akun="${esc(a.email)}">Hapus</button>` : '<small>Anda</small>'}</div>`).join('');
+    $('daftar-akun').innerHTML = r.akun.map(a => `<div class="baris-video"><span><b>${esc(a.nama)}</b> · ${esc(a.email)} · ${esc(LABEL_PERAN[a.peran] || a.peran)} · <small>${a.pakaiSandi ? 'sandi atau Google' : 'Google'}</small></span>
+      ${a.email !== saya.email && (a.peran !== 'pemilik' || saya.peran === 'pemilik') ? `<button class="tombol tombol--garis tombol--kecil" type="button" data-hapus-akun="${esc(a.email)}">Hapus</button>` : (a.email === saya.email ? '<small>Anda</small>' : '')}</div>`).join('');
   } catch (err) { $('daftar-akun').textContent = err.message; }
 }
 $('daftar-akun').addEventListener('click', async e => {
@@ -760,6 +763,181 @@ async function muatPelanggan() {
       : '<p class="bantu" style="margin:0">Belum ada pengunjung yang membuat akun.</p>';
   } catch (err) { el.textContent = err.message; }
 }
+
+// ---------------------------------------------------------------- bahan posting (mode simpel)
+// Pengurus cukup menulis nama properti + keterangan lalu memilih foto/video.
+// Tiap unggahan jadi satu folder sendiri, supaya bahan antar-properti tidak bercampur.
+let semuaBahan = [], saringBahan = 'belum';
+const bolehUbahBahan = b => adminKah() || b.oleh === saya.email;
+const ukuranMB = n => (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + ' MB';
+
+async function muatBahan() {
+  try { semuaBahan = (await panggil('/api/pengurus/bahan')).bahan; gambarBahan(); }
+  catch (err) { $('daftar-bahan').textContent = err.message; }
+}
+
+function gambarBahan() {
+  const belum = semuaBahan.filter(b => !b.selesai).length;
+  $('lencana-bahan').hidden = !belum; $('lencana-bahan').textContent = belum;
+  const tampil = semuaBahan.filter(b => saringBahan === 'semua' || (saringBahan === 'belum' ? !b.selesai : b.selesai));
+  if (!tampil.length) {
+    $('daftar-bahan').innerHTML = `<p class="bantu">${saringBahan === 'belum' ? 'Semua bahan sudah diposting.' : 'Belum ada folder bahan.'}</p>`;
+    return;
+  }
+  $('daftar-bahan').innerHTML = tampil.map(b => {
+    const foto = b.media.filter(x => x.jenis === 'foto').length, video = b.media.length - foto;
+    const ubah = bolehUbahBahan(b);
+    return `<article class="langkah folder-bahan${b.selesai ? ' folder-bahan--selesai' : ''}" data-bahan="${esc(b.id)}">
+      <div class="folder-kepala">
+        <div>
+          <h3>📁 ${esc(b.nama)}</h3>
+          <p class="bantu" style="margin:2px 0 0">${foto} foto · ${video} video · ${esc(b.olehNama || b.oleh.split('@')[0])} · ${esc(String(b.dibuat).slice(0, 10))}${b.selesai ? ' · <b style="color:var(--hutan)">sudah diposting</b>' : ''}</p>
+        </div>
+        <div class="folder-aksi">
+          <button class="tombol tombol--kecil" type="button" data-aksi="zip"${b.media.length ? '' : ' disabled'}>Unduh semua (ZIP)</button>
+          <button class="tombol tombol--garis tombol--kecil" type="button" data-aksi="salin">Salin keterangan</button>
+          ${ubah ? `<label class="tombol tombol--garis tombol--kecil">+ Tambah berkas<input type="file" accept="image/*,video/*" multiple hidden data-aksi="tambah"></label>` : ''}
+          <button class="tombol tombol--garis tombol--kecil" type="button" data-aksi="selesai">${b.selesai ? 'Tandai belum diposting' : '✓ Sudah diposting'}</button>
+          ${ubah ? '<button class="tombol tombol--garis tombol--kecil" type="button" data-aksi="hapus" style="color:var(--merah);border-color:var(--merah)">Hapus folder</button>' : ''}
+        </div>
+      </div>
+      ${b.keterangan ? `<p class="folder-ket">${esc(b.keterangan)}</p>` : ''}
+      <div class="kemajuan" id="kemajuan-bahan-${esc(b.id)}" hidden><span></span></div>
+      <div class="folder-isi">${b.media.map(x => `<figure>
+          <a href="${esc(x.url)}" target="_blank" rel="noopener" title="${esc(x.nama || 'Buka ukuran penuh')}">${x.jenis === 'video'
+            ? `<video src="${esc(x.url)}#t=0.5" preload="metadata" muted playsinline></video><span class="folder-lencana">Video</span>`
+            : `<img src="${esc(x.url)}" alt="" loading="lazy">`}</a>
+          <figcaption>${esc(ukuranMB(x.ukuran || 0))}${ubah ? ` <button type="button" class="folder-hapus" data-hapus-berkas="${esc(x.url)}" aria-label="Hapus berkas ini">×</button>` : ''}</figcaption>
+        </figure>`).join('') || '<p class="bantu" style="margin:0;grid-column:1/-1">Folder ini belum berisi berkas. Tambahkan lewat tombol "+ Tambah berkas".</p>'}</div>
+    </article>`;
+  }).join('');
+}
+
+// Foto digambar ulang (maks. 2560 px, kualitas tinggi) supaya data GPS di dalamnya
+// terbuang; video dikirim apa adanya (maks. 300 MB).
+async function siapkanBerkasBahan(b) {
+  if (!b.type.startsWith('image/')) return { data: b, nama: b.name };
+  let gambar;
+  try { gambar = await createImageBitmap(b, { imageOrientation: 'from-image' }); }
+  catch (_) { return { data: b, nama: b.name }; }
+  const skala = Math.min(1, 2560 / Math.max(gambar.width, gambar.height));
+  const k = document.createElement('canvas');
+  k.width = Math.round(gambar.width * skala); k.height = Math.round(gambar.height * skala);
+  k.getContext('2d').drawImage(gambar, 0, 0, k.width, k.height);
+  const blob = await new Promise(ok => k.toBlob(ok, 'image/jpeg', 0.92));
+  return { data: blob, nama: b.name.replace(/\.[^.]+$/, '') + '.jpg' };
+}
+
+async function unggahKeBahan(id, berkas, idKemajuan) {
+  let gagal = 0, terakhir = null;
+  for (let i = 0; i < berkas.length; i++) {
+    const b = berkas[i];
+    if (b.type.startsWith('video/') && b.size > 300 * 1024 * 1024) { gagal++; alert(b.name + ' (' + ukuranMB(b.size) + ') melebihi batas video 300 MB. Kompres dulu di ponsel.'); continue; }
+    try {
+      tampilKemajuan(idKemajuan, 0, `Menyiapkan ${i + 1} dari ${berkas.length}…`);
+      const s = await siapkanBerkasBahan(b);
+      const r = await kirimBerkas(s.data, s.nama, p => tampilKemajuan(idKemajuan, p, `Mengunggah ${i + 1} dari ${berkas.length}: ${Math.round(p * 100)}%`), '/api/pengurus/bahan/' + id + '/media');
+      terakhir = r.bahan;
+    } catch (err) { gagal++; alert(b.name + ': ' + err.message); }
+  }
+  tampilKemajuan(idKemajuan, null);
+  return { gagal, terakhir };
+}
+
+$('pilih-bahan').addEventListener('change', () => {
+  const f = [...$('pilih-bahan').files];
+  $('ringkas-bahan').textContent = f.length
+    ? `${f.filter(x => x.type.startsWith('image/')).length} foto · ${f.filter(x => x.type.startsWith('video/')).length} video dipilih (${ukuranMB(f.reduce((n, x) => n + x.size, 0))})`
+    : 'Belum ada berkas dipilih.';
+});
+
+$('form-bahan').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target, pesan = f.querySelector('.pesan'), tombol = f.querySelector('button[type=submit]');
+  const berkas = [...$('pilih-bahan').files];
+  if (!berkas.length) return tampilPesan(pesan, 'galat', 'Pilih minimal satu foto atau video.');
+  tombol.disabled = true;
+  try {
+    const { bahan } = await panggil('/api/pengurus/bahan', { method: 'POST', json: { nama: f.nama.value, keterangan: f.keterangan.value } });
+    const { gagal } = await unggahKeBahan(bahan.id, berkas, 'kemajuan-bahan-baru');
+    tampilPesan(pesan, gagal ? 'galat' : 'ok', gagal ? `Folder dibuat, tetapi ${gagal} berkas gagal terunggah. Tambahkan lagi lewat tombol "+ Tambah berkas".` : `Tersimpan di folder "${bahan.nama}".`);
+    f.reset(); $('ringkas-bahan').textContent = 'Belum ada berkas dipilih.';
+    saringBahan = 'belum'; document.querySelectorAll('[data-saring-bahan]').forEach(x => x.setAttribute('aria-pressed', x.dataset.saringBahan === 'belum'));
+    await muatBahan();
+  } catch (err) { tampilPesan(pesan, 'galat', err.message); }
+  finally { tombol.disabled = false; }
+});
+
+document.querySelectorAll('[data-saring-bahan]').forEach(b => b.addEventListener('click', () => {
+  saringBahan = b.dataset.saringBahan;
+  document.querySelectorAll('[data-saring-bahan]').forEach(x => x.setAttribute('aria-pressed', x === b));
+  gambarBahan();
+}));
+
+async function unduhZip(b, tombol) {
+  const asal = tombol.textContent;
+  tombol.disabled = true; tombol.textContent = 'Menyiapkan ZIP…';
+  try {
+    const r = await fetch(API + '/api/pengurus/bahan/' + b.id + '/zip', { headers: { Authorization: 'Bearer ' + await tokenSaatIni() } });
+    if (!r.ok) { let d = {}; try { d = await r.json(); } catch (_) {} throw new Error(d.galat || 'Unduhan gagal (' + r.status + ').'); }
+    const total = +r.headers.get('Content-Length') || 0, bagian = [];
+    let dapat = 0;
+    const baca = r.body.getReader();
+    for (;;) {
+      const { done, value } = await baca.read();
+      if (done) break;
+      bagian.push(value); dapat += value.length;
+      if (total) tombol.textContent = 'Mengunduh ' + Math.round(dapat / total * 100) + '%';
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(bagian, { type: 'application/zip' }));
+    a.download = b.folder + '.zip';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60e3);
+  } catch (err) { alert(err.message); }
+  finally { tombol.disabled = false; tombol.textContent = asal; }
+}
+
+$('daftar-bahan').addEventListener('click', async e => {
+  const kartu = e.target.closest('[data-bahan]');
+  if (!kartu) return;
+  const b = semuaBahan.find(x => x.id === kartu.dataset.bahan);
+  const hapusBerkas = e.target.closest('[data-hapus-berkas]');
+  if (hapusBerkas) {
+    if (!confirm('Hapus berkas ini dari folder?')) return;
+    try { await panggil('/api/pengurus/bahan/' + b.id + '/media?url=' + encodeURIComponent(hapusBerkas.dataset.hapusBerkas), { method: 'DELETE' }); await muatBahan(); }
+    catch (err) { alert(err.message); }
+    return;
+  }
+  const aksi = e.target.closest('button[data-aksi]')?.dataset.aksi;
+  if (aksi === 'zip') return unduhZip(b, e.target.closest('button'));
+  if (aksi === 'salin') {
+    const t = b.nama + '\n\n' + (b.keterangan || '');
+    try { await navigator.clipboard.writeText(t); e.target.textContent = 'Tersalin ✓'; setTimeout(() => { e.target.textContent = 'Salin keterangan'; }, 1500); }
+    catch (_) { prompt('Salin teks ini:', t); }
+    return;
+  }
+  if (aksi === 'selesai') {
+    try { await panggil('/api/pengurus/bahan/' + b.id, { method: 'PATCH', json: { selesai: !b.selesai } }); await muatBahan(); }
+    catch (err) { alert(err.message); }
+    return;
+  }
+  if (aksi === 'hapus') {
+    if (!confirm(`Hapus folder "${b.nama}" beserta ${b.media.length} berkas di dalamnya? Tindakan ini tidak bisa dibatalkan.`)) return;
+    try { await panggil('/api/pengurus/bahan/' + b.id, { method: 'DELETE' }); await muatBahan(); }
+    catch (err) { alert(err.message); }
+  }
+});
+
+$('daftar-bahan').addEventListener('change', async e => {
+  if (e.target.dataset.aksi !== 'tambah') return;
+  const kartu = e.target.closest('[data-bahan]');
+  const berkas = [...e.target.files];
+  e.target.value = '';
+  if (!berkas.length) return;
+  await unggahKeBahan(kartu.dataset.bahan, berkas, 'kemajuan-bahan-' + kartu.dataset.bahan);
+  await muatBahan();
+});
 
 // ---------------------------------------------------------------- awal
 (async () => {

@@ -496,3 +496,19 @@ body[data-pahlawan] .kepala:not(.bergulir):not(.menu-terbuka) .nav-kanan .tombol
 }
 /* panel memakai layar lebar: tabel 9 kolom tidak lagi berdesakan di 1200px */
 body.panel .wadah, body.panel > main.wadah { width: min(100% - 2 * var(--tepi), 1720px); }
+
+/* bahan posting (panel pengurus) */
+.folder-bahan { margin-bottom: 14px; }
+.folder-bahan--selesai { opacity: .72; }
+.folder-kepala { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+.folder-kepala h3 { margin: 0; font-size: 18px; }
+.folder-aksi { display: flex; gap: 8px; flex-wrap: wrap; }
+.folder-ket { white-space: pre-wrap; margin: 12px 0 0; padding: 10px 12px; background: var(--kertas, #f7f5ef); border-radius: 4px; font-size: 14px; }
+.folder-isi { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
+.folder-isi figure { margin: 0; }
+.folder-isi a { position: relative; display: block; aspect-ratio: 4 / 3; border-radius: 4px; overflow: hidden; background: var(--garis); }
+.folder-isi img, .folder-isi video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.folder-lencana { position: absolute; left: 6px; bottom: 6px; background: rgba(0,0,0,.65); color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 3px; }
+.folder-isi figcaption { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--lumut); margin-top: 4px; }
+.folder-hapus { border: 0; background: none; color: var(--merah); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
+@media (max-width: 640px) { .folder-isi { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); } }

@@ -219,7 +219,10 @@ async function pengurusDari(req) {
 async function wajibPengurus(req, peran) {
   const u = await pengurusDari(req);
   if (!u) throw new GalatPengguna(401, 'Sesi berakhir. Silakan masuk lagi.');
-  if (peran && u.peran !== peran) throw new GalatPengguna(403, 'Hanya admin yang bisa melakukan ini.');
+  // pemilik = admin tertinggi: lolos semua pintu admin, dan hanya pemilik yang
+  // bisa menambah/menghapus akun pemilik lain.
+  if (peran === 'admin' && !(u.peran === 'admin' || u.peran === 'pemilik')) throw new GalatPengguna(403, 'Hanya admin yang bisa melakukan ini.');
+  if (peran === 'pemilik' && u.peran !== 'pemilik') throw new GalatPengguna(403, 'Hanya pemilik yang bisa melakukan ini.');
   return u;
 }
 
@@ -621,7 +624,7 @@ const TIPE_MEDIA = {
   'video/mp4': ['video', '.mp4'], 'video/quicktime': ['video', '.mov'], 'video/webm': ['video', '.webm'],
 };
 
-function terimaUnggahan(req, batasVideo = BATAS_VIDEO) {
+function terimaUnggahan(req, batasVideo = BATAS_VIDEO, subTetap = null) {
   return new Promise((ok, gagal) => {
     let bb;
     try { bb = Busboy({ headers: req.headers, limits: { files: 1, fileSize: batasVideo, fields: 5 } }); }
@@ -634,7 +637,7 @@ function terimaUnggahan(req, batasVideo = BATAS_VIDEO) {
       const [golongan, ekstensi] = jenis;
       const batas = golongan === 'foto' ? BATAS_FOTO : batasVideo;
       const kini = new Date();
-      const sub = kini.getUTCFullYear() + '/' + String(kini.getUTCMonth() + 1).padStart(2, '0');
+      const sub = subTetap || (kini.getUTCFullYear() + '/' + String(kini.getUTCMonth() + 1).padStart(2, '0'));
       const nama = crypto.randomBytes(9).toString('hex') + ekstensi;
       const folder = path.join(MEDIA_DIR, sub);
       fs.mkdirSync(folder, { recursive: true, mode: 0o755 });
@@ -659,7 +662,7 @@ function terimaUnggahan(req, batasVideo = BATAS_VIDEO) {
       keluar.on('finish', () => {
         if (selesai) return;
         selesai = true;
-        ok({ url: MEDIA_URL + '/' + sub + '/' + nama, jenis: golongan, ukuran });
+        ok({ url: MEDIA_URL + '/' + sub + '/' + nama, jenis: golongan, ukuran, namaAsli: String(info.filename || '').slice(0, 120) });
       });
       keluar.on('error', e => { if (!selesai) { selesai = true; gagal(e); } });
     });
@@ -672,7 +675,7 @@ function terimaUnggahan(req, batasVideo = BATAS_VIDEO) {
 async function hapusMedia(url) {
   if (typeof url !== 'string' || !url.startsWith(MEDIA_URL + '/')) return false;
   const rel = url.slice(MEDIA_URL.length + 1);
-  if (!/^\d{4}\/\d{2}\/[a-f0-9]{18}\.(jpg|png|webp|mp4|mov|webm)$/.test(rel)) return false;
+  if (!/^(\d{4}\/\d{2}|bahan\/[a-z0-9-]{1,60})\/[a-f0-9]{18}\.(jpg|png|webp|mp4|mov|webm)$/.test(rel)) return false;
   await fsp.unlink(path.join(MEDIA_DIR, rel)).catch(() => {});
   return true;
 }
@@ -928,7 +931,7 @@ daftar('GET', /^\/api\/pengurus\/akun$/, async ({ req }) => {
 });
 
 daftar('POST', /^\/api\/pengurus\/akun$/, async ({ req }) => {
-  await wajibPengurus(req, 'admin');
+  const saya = await wajibPengurus(req, 'admin');
   const m = await bacaBadan(req, 4096);
   const email = teks(m.email, 120).toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new GalatPengguna(400, 'Email tidak valid.');
@@ -936,7 +939,8 @@ daftar('POST', /^\/api\/pengurus\/akun$/, async ({ req }) => {
   if (sandi && sandi.length < 10) throw new GalatPengguna(400, 'Sandi awal minimal 10 karakter, atau kosongkan bila anggota masuk dengan Google.');
   const pengguna = await baca('pengguna', []);
   if (pengguna.some(u => u.email === email)) throw new GalatPengguna(409, 'Email itu sudah terdaftar.');
-  const akun = { email, nama: teks(m.nama, 60) || email, peran: m.peran === 'admin' ? 'admin' : 'pengurus', dibuat: new Date().toISOString() };
+  if (m.peran === 'pemilik' && saya.peran !== 'pemilik') throw new GalatPengguna(403, 'Hanya pemilik yang bisa menambah pemilik.');
+  const akun = { email, nama: teks(m.nama, 60) || email, peran: ['admin', 'pemilik'].includes(m.peran) ? m.peran : 'pengurus', dibuat: new Date().toISOString() };
   if (sandi) {
     akun.garam = crypto.randomBytes(16).toString('hex');
     akun.hash = hashSandi(sandi, akun.garam);
@@ -951,6 +955,8 @@ daftar('DELETE', /^\/api\/pengurus\/akun\/(.+)$/, async ({ req, cocok }) => {
   const saya = await wajibPengurus(req, 'admin');
   const email = decodeURIComponent(cocok[1]).toLowerCase();
   if (email === saya.email) throw new GalatPengguna(400, 'Anda tidak bisa menghapus akun sendiri.');
+  const target = (await baca('pengguna', [])).find(u => u.email === email);
+  if (target && target.peran === 'pemilik' && saya.peran !== 'pemilik') throw new GalatPengguna(403, 'Akun pemilik hanya bisa dihapus oleh pemilik.');
   const pengguna = (await baca('pengguna', [])).filter(u => u.email !== email);
   await tulis('pengguna', pengguna);
   return { ok: true };
@@ -1061,6 +1067,163 @@ daftar('GET', /^\/api\/pengurus\/sosmed\/([A-Za-z0-9-]{3,16})$/, async ({ req, c
   return bahanSosmed(l);
 });
 
+
+// ---------------------------------------------------------------- zip (store)
+const MANUAL = Symbol('jawaban-sudah-dikirim');
+async function kirimZip(res, namaFolder, keterangan, berkas, cors) {
+  const zlib = require('zlib');
+  // Lintasan 1: ukuran + CRC tiap berkas dihitung bertahap dari disk (video
+  // bisa ratusan MB, jangan dimuat utuh ke memori).
+  const isi = [{ nama: 'keterangan.txt', data: keterangan, ukuran: keterangan.length, crc: zlib.crc32(keterangan) >>> 0 }];
+  for (const f of berkas) {
+    try {
+      let crc = 0, ukuran = 0;
+      for await (const pot of fs.createReadStream(f.jalur)) { crc = zlib.crc32(pot, crc); ukuran += pot.length; }
+      isi.push({ nama: f.nama, jalur: f.jalur, ukuran, crc: crc >>> 0 });
+    } catch (_) { /* berkas hilang: lewati */ }
+  }
+  const pusat = [];
+  let offset = 0;
+  for (const f of isi) {
+    const nama = Buffer.from(namaFolder + '/' + f.nama, 'utf8');
+    const lokal = Buffer.alloc(30);
+    lokal.writeUInt32LE(0x04034b50, 0); lokal.writeUInt16LE(20, 4); lokal.writeUInt16LE(0x0800, 6);
+    lokal.writeUInt32LE(f.crc, 14); lokal.writeUInt32LE(f.ukuran, 18); lokal.writeUInt32LE(f.ukuran, 22);
+    lokal.writeUInt16LE(nama.length, 26);
+    const p = Buffer.alloc(46);
+    p.writeUInt32LE(0x02014b50, 0); p.writeUInt16LE(20, 4); p.writeUInt16LE(20, 6); p.writeUInt16LE(0x0800, 8);
+    p.writeUInt32LE(f.crc, 16); p.writeUInt32LE(f.ukuran, 20); p.writeUInt32LE(f.ukuran, 24);
+    p.writeUInt16LE(nama.length, 28); p.writeUInt32LE(offset, 42);
+    f.kepala = Buffer.concat([lokal, nama]);
+    pusat.push(p, nama);
+    offset += 30 + nama.length + f.ukuran;
+  }
+  const ukPusat = pusat.reduce((n, x) => n + x.length, 0);
+  const akhir = Buffer.alloc(22);
+  akhir.writeUInt32LE(0x06054b50, 0); akhir.writeUInt16LE(isi.length, 8); akhir.writeUInt16LE(isi.length, 10);
+  akhir.writeUInt32LE(ukPusat, 12); akhir.writeUInt32LE(offset, 16);
+  res.writeHead(200, Object.assign({}, cors, {
+    'Content-Type': 'application/zip', 'Content-Length': offset + ukPusat + 22, 'Cache-Control': 'no-store',
+    'Content-Disposition': 'attachment; filename="' + namaFolder + '.zip"',
+    'Access-Control-Expose-Headers': 'Content-Disposition, Content-Length',
+  }));
+  const tulisKe = async x => { if (!res.write(x)) await new Promise(r => res.once('drain', r)); };
+  for (const f of isi) {
+    await tulisKe(f.kepala);
+    if (f.data) await tulisKe(f.data);
+    else for await (const pot of fs.createReadStream(f.jalur)) await tulisKe(pot);
+  }
+  for (const x of [...pusat, akhir]) await tulisKe(x);
+  res.end();
+}
+
+// ---------------------------------------------------------------- bahan posting (mode simpel)
+// Pengurus cukup memberi nama + keterangan lalu memilih foto/video. Tiap bahan
+// punya folder sendiri di MEDIA_DIR/bahan/<slug>-<id>/ supaya tidak bercampur.
+function slugNama(t) {
+  return String(t || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'bahan';
+}
+function bolehUbahBahan(saya, b) { return saya.peran === 'admin' || saya.peran === 'pemilik' || b.oleh === saya.email; }
+
+daftar('GET', /^\/api\/pengurus\/bahan$/, async ({ req }) => {
+  await wajibPengurus(req);
+  const semua = await baca('bahan', []);
+  return { bahan: [...semua].sort((a, b) => String(b.dibuat).localeCompare(String(a.dibuat))) };
+});
+
+daftar('POST', /^\/api\/pengurus\/bahan$/, async ({ req }) => {
+  const saya = await wajibPengurus(req);
+  const m = await bacaBadan(req, 16 * 1024);
+  const nama = teks(m.nama, 100);
+  if (!nama) throw new GalatPengguna(400, 'Isi nama properti dulu. Nama ini jadi nama foldernya.');
+  const semua = await baca('bahan', []);
+  const id = crypto.randomBytes(4).toString('hex');
+  const b = { id, nama, keterangan: teks(m.keterangan, 4000) || '', folder: slugNama(nama) + '-' + id, media: [],
+    oleh: saya.email, olehNama: saya.nama || saya.email, dibuat: new Date().toISOString().slice(0, 19), selesai: false };
+  semua.push(b);
+  await tulis('bahan', semua);
+  return { bahan: b };
+});
+
+daftar('PATCH', /^\/api\/pengurus\/bahan\/([a-f0-9]{8})$/, async ({ req, cocok }) => {
+  const saya = await wajibPengurus(req);
+  const m = await bacaBadan(req, 16 * 1024);
+  const semua = await baca('bahan', []);
+  const b = semua.find(x => x.id === cocok[1]);
+  if (!b) throw new GalatPengguna(404, 'Folder bahan tidak ditemukan.');
+  if ('selesai' in m) { b.selesai = !!m.selesai; b.selesaiOleh = b.selesai ? saya.email : null; }
+  if ('nama' in m || 'keterangan' in m) {
+    if (!bolehUbahBahan(saya, b)) throw new GalatPengguna(403, 'Hanya pengunggah atau admin yang bisa mengubah isi folder ini.');
+    if ('nama' in m) b.nama = teks(m.nama, 100) || b.nama;
+    if ('keterangan' in m) b.keterangan = teks(m.keterangan, 4000) || '';
+  }
+  b.diubah = new Date().toISOString().slice(0, 19);
+  await tulis('bahan', semua);
+  return { bahan: b };
+});
+
+daftar('POST', /^\/api\/pengurus\/bahan\/([a-f0-9]{8})\/media$/, async ({ req, cocok }) => {
+  const saya = await wajibPengurus(req);
+  if (!/multipart\/form-data/.test(String(req.headers['content-type']))) throw new GalatPengguna(400, 'Kirim sebagai unggahan berkas.');
+  const b0 = (await baca('bahan', [])).find(x => x.id === cocok[1]);
+  if (!b0) throw new GalatPengguna(404, 'Folder bahan tidak ditemukan.');
+  if (!bolehUbahBahan(saya, b0)) throw new GalatPengguna(403, 'Hanya pengunggah atau admin yang bisa menambah berkas ke folder ini.');
+  if ((b0.media || []).length >= 80) throw new GalatPengguna(400, 'Satu folder maksimal 80 berkas. Buat folder baru.');
+  const hasil = await terimaUnggahan(req, BATAS_VIDEO, 'bahan/' + b0.folder);
+  const semua = await baca('bahan', []);
+  const b = semua.find(x => x.id === cocok[1]);
+  if (!b) { await hapusMedia(hasil.url); throw new GalatPengguna(404, 'Folder bahan sudah dihapus.'); }
+  b.media.push({ url: hasil.url, jenis: hasil.jenis, ukuran: hasil.ukuran, nama: hasil.namaAsli || null });
+  b.diubah = new Date().toISOString().slice(0, 19);
+  await tulis('bahan', semua);
+  return { bahan: b };
+});
+
+daftar('DELETE', /^\/api\/pengurus\/bahan\/([a-f0-9]{8})\/media$/, async ({ req, cocok, q }) => {
+  const saya = await wajibPengurus(req);
+  const semua = await baca('bahan', []);
+  const b = semua.find(x => x.id === cocok[1]);
+  if (!b) throw new GalatPengguna(404, 'Folder bahan tidak ditemukan.');
+  if (!bolehUbahBahan(saya, b)) throw new GalatPengguna(403, 'Hanya pengunggah atau admin yang bisa menghapus berkas ini.');
+  const url = String(q.url || '');
+  if (!b.media.some(x => x.url === url)) throw new GalatPengguna(404, 'Berkas tidak ada di folder ini.');
+  b.media = b.media.filter(x => x.url !== url);
+  await hapusMedia(url);
+  await tulis('bahan', semua);
+  return { bahan: b };
+});
+
+daftar('DELETE', /^\/api\/pengurus\/bahan\/([a-f0-9]{8})$/, async ({ req, cocok }) => {
+  const saya = await wajibPengurus(req);
+  const semua = await baca('bahan', []);
+  const b = semua.find(x => x.id === cocok[1]);
+  if (!b) throw new GalatPengguna(404, 'Folder bahan tidak ditemukan.');
+  if (!bolehUbahBahan(saya, b)) throw new GalatPengguna(403, 'Hanya pengunggah atau admin yang bisa menghapus folder ini.');
+  for (const x of b.media) await hapusMedia(x.url);
+  await fsp.rmdir(path.join(MEDIA_DIR, 'bahan', b.folder)).catch(() => {});
+  await tulis('bahan', semua.filter(x => x.id !== b.id));
+  return { ok: true };
+});
+
+// Unduh satu folder sebagai ZIP (tanpa kompresi: foto/video sudah terkompres).
+daftar('GET', /^\/api\/pengurus\/bahan\/([a-f0-9]{8})\/zip$/, async ({ req, res, cocok }) => {
+  await wajibPengurus(req);
+  const b = (await baca('bahan', [])).find(x => x.id === cocok[1]);
+  if (!b) throw new GalatPengguna(404, 'Folder bahan tidak ditemukan.');
+  const dipakai = new Set();
+  const berkas = b.media.map((x, i) => {
+    const rel = x.url.slice(MEDIA_URL.length + 1);
+    let nama = String(i + 1).padStart(2, '0') + '-' + (x.jenis === 'video' ? 'video' : 'foto') + path.extname(rel);
+    while (dipakai.has(nama)) nama = '_' + nama;
+    dipakai.add(nama);
+    return { jalur: path.join(MEDIA_DIR, rel), nama };
+  });
+  const ket = Buffer.from(b.nama + '\r\n\r\n' + (b.keterangan || '') + '\r\n', 'utf8');
+  await kirimZip(res, b.folder, ket, berkas, corsUntuk(req));
+  return MANUAL;
+});
+
 // ---------------------------------------------------------------- server
 const server = http.createServer(async (req, res) => {
   const cors = corsUntuk(req);
@@ -1073,6 +1236,7 @@ const server = http.createServer(async (req, res) => {
     if (!cocok) continue;
     try {
       const hasil = await r.fungsi({ req, res, q, cocok, ip: ipDari(req) });
+      if (hasil === MANUAL) return;
       return kirim(res, 200, hasil, cors);
     } catch (e) {
       if (e instanceof GalatPengguna) return kirim(res, e.status, { galat: e.message }, cors);
