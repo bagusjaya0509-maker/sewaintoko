@@ -61,7 +61,7 @@ def halaman(*, judul, deskripsi, kanonik, kedalaman, isi, kepala_tambahan='', bo
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 {kepala_tambahan}<link rel="stylesheet" href="{akar}assets/css/sewain.css?v=20261117d">
 <link rel="stylesheet" href="{akar}assets/css/sewain-v2.css?v=20261117d">
-<link rel="stylesheet" href="{akar}assets/css/sewain-v3.css?v=20261117d">
+<link rel="stylesheet" href="{akar}assets/css/sewain-v3.css?v=20261122b">
 </head>
 <body data-akar="{akar}"{body_attr}>
 
@@ -254,18 +254,40 @@ def ambil_listing():
         hasil[l['kode']] = l
     return list(hasil.values())
 
+def jalur_listing(l):
+    m = re.match(r'^https?://(?:www\.)?sewatoko\.com(/\d{4}/\d{2}/[a-z0-9_-]+\.html)$', l.get('sumber') or '')
+    if m:
+        return m.group(1)
+    if re.match(r'^/properti/[a-z0-9-]+\.html$', l.get('halaman') or ''):
+        return l['halaman']
+    return None
+
+def baris_spesifikasi(l):
+    sp = l.get('spesifikasi') or {}
+    b = []
+    if sp.get('luasTanah'): b.append(('Luas tanah', f"{sp['luasTanah']:g} m²"))
+    if sp.get('luasBangunan'): b.append(('Luas bangunan', f"{sp['luasBangunan']:g} m²"))
+    if sp.get('dimensi'): b.append(('Ukuran', sp['dimensi']))
+    if sp.get('lantai'): b.append(('Jumlah lantai', f"{sp['lantai']:g}"))
+    if sp.get('kamarTidur'): b.append(('Kamar tidur', f"{sp['kamarTidur']:g}"))
+    if sp.get('kamarMandi'): b.append(('Kamar mandi', f"{sp['kamarMandi']:g}"))
+    if sp.get('listrikWatt'): b.append(('Daya listrik', f"{sp['listrikWatt']:,.0f} watt".replace(',', '.')))
+    if sp.get('air'): b.append(('Sumber air', ', '.join(sp['air'])))
+    if sp.get('legalitas'): b.append(('Legalitas', ', '.join(sp['legalitas'])))
+    if 'parkir' in sp: b.append(('Parkir', 'Tersedia' if sp['parkir'] else 'Tidak ada'))
+    if 'jalanUtama' in sp: b.append(('Di jalan utama', 'Ya' if sp['jalanUtama'] else 'Tidak'))
+    b.append(('Tipe properti', (l.get('tipe') or '').capitalize()))
+    b.append(('Status', {'tersedia': 'Tersedia', 'tersewa': 'Sudah tersewa', 'terjual': 'Sudah terjual', 'ditahan': 'Ditahan'}.get(l.get('status') or 'tersedia', 'Tersedia')))
+    return [x for x in b if x[1]]
+
 def bangun_listing(semua):
     jalur_semua = []
-    for l in semua:
-        m = re.match(r'^https?://(?:www\.)?sewatoko\.com(/\d{4}/\d{2}/[a-z0-9_-]+\.html)$', l.get('sumber') or '')
-        if m:
-            jalur = m.group(1)
-        elif re.match(r'^/properti/[a-z0-9-]+\.html$', l.get('halaman') or ''):
-            jalur = l['halaman']
-        else:
-            continue
-        if l.get('terbit') is False:
-            continue
+    siap = [(l, jalur_listing(l)) for l in semua if jalur_listing(l) and l.get('terbit') is not False]
+    for l, jalur in siap:
+        lk = l.get('lokasi') or {}
+        mirip = [x for x in siap if x[0]['kode'] != l['kode'] and (x[0].get('lokasi') or {}).get('kabupaten') == lk.get('kabupaten')]
+        mirip.sort(key=lambda x: (x[0].get('status') or 'tersedia') != 'tersedia')
+        mirip = mirip[:6]
         dalam = jalur.count('/') - 1
         naik = '../' * dalam
         tempat = ', '.join(x for x in [(l.get('lokasi') or {}).get('area'), re.sub(r'^(Kabupaten|Kota)\s+', '', (l.get('lokasi') or {}).get('kabupaten') or '')] if x)
@@ -287,8 +309,13 @@ def bangun_listing(semua):
     <div class="detail-susun"><div>
       <section class="blok"><h2>Harga</h2><p class="harga-besar" style="color:var(--hutan)">{('mulai ' if l.get('hargaMulai') else '') + harga + ' <small>' + e(satuan) + '</small>' if harga else 'Hubungi kami'}</p>{f'<p>{e(l.get("hargaTeks"))}</p>' if l.get('hargaTeks') else ''}</section>
       <section class="blok prosa"><h2>Deskripsi</h2>{''.join(f'<p>{e(p)}</p>' for p in (l.get('deskripsi') or []))}</section>
+      <section class="blok"><h2>Spesifikasi</h2><table class="tabel-spek">{''.join(f'<tr><th scope="row">{e(k)}</th><td>{e(v)}</td></tr>' for k, v in baris_spesifikasi(l))}</table></section>
       {''.join(f'<section class="blok"><h3>{e(f.get("judul"))}</h3><p>{e(f.get("isi"))}</p></section>' for f in (l.get('fitur') or [])[:8])}
     </div></div>
+  </div>
+  <div class="wadah detail-tambahan">
+      <section class="blok"><h2>Cara survei</h2><p>Jadwalkan survei lewat tombol di halaman ini atau hubungi WhatsApp Sewain dengan menyebutkan kode <b>{e(l['kode'])}</b>. Agen Sewain mendampingi survei, menjelaskan harga, legalitas, dan isi perjanjian sebelum Anda memutuskan.</p></section>
+      {('<section class="blok"><h2>Properti lain di ' + e(re.sub(r'^(Kabupaten|Kota)\s+', '', lk.get('kabupaten') or '')) + '</h2><ul>' + ''.join(f'<li><a href="{naik}{x[1].lstrip("/")}">{e(x[0].get("judul"))}</a> ({e(x[0]["kode"])}){" — " + rupiah(x[0].get("harga")) if x[0].get("harga") else ""}</li>' for x in mirip) + '</ul></section>') if mirip else ''}
   </div>
 </main>'''
         skrip = f'''<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -311,7 +338,11 @@ def bangun_listing(semua):
                        'seller': {'@type': 'RealEstateAgent', 'name': 'Sewain Property Agency', 'url': DOMAIN + '/'}} if l.get('harga') else None,
         }
         ld = {k: v for k, v in ld.items() if v}
-        ld_html = '<script type="application/ld+json">' + json.dumps(ld, ensure_ascii=False).replace('</', '<\\/') + '</script>\n'
+        remah = {'@context': 'https://schema.org', '@type': 'BreadcrumbList', 'itemListElement': [
+            {'@type': 'ListItem', 'position': 1, 'name': 'Beranda', 'item': DOMAIN + '/'},
+            {'@type': 'ListItem', 'position': 2, 'name': 'Properti', 'item': DOMAIN + '/properti/'},
+            {'@type': 'ListItem', 'position': 3, 'name': l.get('judul'), 'item': DOMAIN + jalur}]}
+        ld_html = ''.join('<script type="application/ld+json">' + json.dumps(x, ensure_ascii=False).replace('</', '<\\/') + '</script>\n' for x in (ld, remah))
         tulis(jalur.lstrip('/'), halaman(judul=f"{l.get('judul')} ({l['kode']}) — Sewain", deskripsi=desk, kanonik=DOMAIN + jalur, kedalaman=dalam,
                                           isi=badan + '\n\n' + sorot, skrip=skrip, gambar=foto[0] if foto else None,
                                           kepala_tambahan='<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">\n' + ld_html,
@@ -325,6 +356,20 @@ def bangun_listing(semua):
         if os.path.exists(p):
             s = open(p, encoding='utf-8').read().replace(f'<link rel="canonical" href="{DOMAIN}{utama}">', f'<link rel="canonical" href="{DOMAIN}{utama}">', 1)
             tulis(lama.lstrip('/'), s)
+    p = os.path.join(AKAR, 'properti', 'index.html')
+    isi = open(p, encoding='utf-8').read()
+    kelompok = {}
+    for l, jalur in siap:
+        kab = re.sub(r'^(Kabupaten|Kota)\s+', '', (l.get('lokasi') or {}).get('kabupaten') or 'Lainnya')
+        kelompok.setdefault(kab, []).append((l, jalur))
+    blok = '<!--daftar-statis-->\n    <section class="wadah daftar-statis" aria-labelledby="judul-daftar-statis">\n      <h2 id="judul-daftar-statis">Daftar semua listing</h2>\n' + ''.join(
+        f'      <h3>{e(kab)}</h3>\n      <ul>' + ''.join(f'<li><a href="..{j}">{e(x.get("judul"))}</a> <small>({e(x["kode"])}{", " + {"tersewa": "tersewa", "terjual": "terjual"}.get(x.get("status"), "") if x.get("status") in ("tersewa", "terjual") else ""})</small></li>' for x, j in sorted(v, key=lambda t: t[0]['kode'])) + '</ul>\n'
+        for kab, v in sorted(kelompok.items())) + '    </section>\n    <!--/daftar-statis-->'
+    if '<!--daftar-statis-->' in isi:
+        isi = re.sub(r'<!--daftar-statis-->.*?<!--/daftar-statis-->', lambda _: blok, isi, flags=re.S)
+    else:
+        isi = isi.replace('\n</main>', '\n    ' + blok + '\n</main>', 1)
+    tulis('properti/index.html', isi)
     return jalur_semua
 
 # ------------------------------------------------------------------ 3. halaman /p/
