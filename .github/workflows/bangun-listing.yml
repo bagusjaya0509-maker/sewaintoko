@@ -1,0 +1,32 @@
+# Membangun ulang halaman statis listing + sitemap dari API Sewain, supaya listing
+# yang baru ditambahkan lewat panel otomatis punya halaman sendiri yang bisa
+# diindeks Google. Permintaan pemilik 22 Nov 2026.
+name: Bangun halaman listing
+on:
+  schedule:
+    - cron: "17 */3 * * *"   # tiap 3 jam
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: bangun-listing
+  cancel-in-progress: false
+jobs:
+  bangun:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Bangun halaman listing
+        run: python alat/bangun-statis.py --listing-saja
+      - name: Simpan bila ada listing baru atau berubah
+        run: |
+          git add -A properti 2026 sitemap.xml robots.txt
+          # sitemap memuat tanggal hari ini; abaikan bila hanya itu yang berubah
+          if git diff --cached --quiet -- properti 2026; then echo "Tidak ada listing baru/berubah."; exit 0; fi
+          git config user.name "sewain-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Bangun ulang halaman listing (otomatis)"
+          git push
