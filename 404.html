@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Halaman tidak ditemukan — Sewain Property Agency</title>
+<link rel="icon" href="/assets/img/ikon-32.png?v=2" sizes="32x32">
+<link rel="icon" href="/assets/img/ikon-192.png?v=2" sizes="192x192">
+<link rel="icon" href="/assets/img/favicon.svg?v=2" type="image/svg+xml">
+<script>
+  // Halaman listing baru (/properti/<slug>-<kode>.html) dibangun berkala. Selama
+  // belum dibangun, alihkan ke halaman detail dinamis supaya tautannya tidak putus.
+  (function () {
+    var m = location.pathname.match(/^\/properti\/[a-z0-9-]*?([a-z]{3}-\d{3})\.html$/);
+    if (m) location.replace('/listing/?kode=' + m[1].toUpperCase());
+  })();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/sewain.css?v=20261117d">
+<link rel="stylesheet" href="/assets/css/sewain-v2.css?v=20261117d">
+<link rel="stylesheet" href="/assets/css/sewain-v3.css?v=20261122a">
+</head>
+<body data-akar="/">
+<header class="kepala" data-kerangka></header>
+<main class="wadah" style="padding:80px 0;text-align:center">
+  <p class="alis">404</p>
+  <h1 class="judul-2">Halaman tidak ditemukan</h1>
+  <p style="color:var(--lumut)">Alamat ini sudah tidak ada atau salah ketik.</p>
+  <p style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:22px">
+    <a class="tombol" href="/properti/">Lihat semua properti</a>
+    <a class="tombol tombol--garis" href="/">Ke beranda</a>
+  </p>
+</main>
+<footer class="kaki" data-kerangka></footer>
+<script type="module" src="/assets/js/inti.js?v=20261117d"></script>
+</body>
+</html>

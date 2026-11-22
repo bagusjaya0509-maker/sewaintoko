@@ -53,6 +53,7 @@ def halaman(*, judul, deskripsi, kanonik, kedalaman, isi, kepala_tambahan='', bo
 <meta property="og:image" content="{e(og)}">
 <meta property="og:url" content="{e(kanonik)}">
 <link rel="icon" href="{akar}assets/img/ikon-32.png?v=2" sizes="32x32">
+<link rel="icon" href="{akar}assets/img/ikon-192.png?v=2" sizes="192x192">
 <link rel="icon" href="{akar}assets/img/favicon.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{akar}assets/img/ikon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -239,7 +240,7 @@ def rupiah(n):
 
 def ambil_listing():
     try:
-        with urllib.request.urlopen(API + '/api/listing', timeout=20) as r:
+        with urllib.request.urlopen(API + '/api/listing?status=semua', timeout=20) as r:
             dari_api = json.load(r)['listing']
     except Exception as x:
         print('  API tidak terjangkau (' + str(x) + '), memakai data/listing.json')
@@ -257,10 +258,18 @@ def bangun_listing(semua):
     jalur_semua = []
     for l in semua:
         m = re.match(r'^https?://(?:www\.)?sewatoko\.com(/\d{4}/\d{2}/[a-z0-9_-]+\.html)$', l.get('sumber') or '')
-        if not m:
+        if m:
+            jalur = m.group(1)
+        elif re.match(r'^/properti/[a-z0-9-]+\.html$', l.get('halaman') or ''):
+            jalur = l['halaman']
+        else:
             continue
-        jalur = m.group(1)
+        if l.get('terbit') is False:
+            continue
+        dalam = jalur.count('/') - 1
+        naik = '../' * dalam
         tempat = ', '.join(x for x in [(l.get('lokasi') or {}).get('area'), re.sub(r'^(Kabupaten|Kota)\s+', '', (l.get('lokasi') or {}).get('kabupaten') or '')] if x)
+        tempat = ', '.join(dict.fromkeys(x.strip() for x in tempat.split(',') if x.strip()))   # 'Denbantas, Tabanan, Tabanan' -> sekali
         harga = rupiah(l.get('harga'))
         satuan = ('/ ' + l['periode']) if l.get('periode') else ('harga jual' if l.get('jenis') == 'jual' else '')
         jenis = 'Dijual' if l.get('jenis') == 'jual' else 'Disewakan'
@@ -268,7 +277,7 @@ def bangun_listing(semua):
         foto = l.get('foto') or []
         badan = f'''<main class="detail">
   <div class="wadah" id="isi">
-    <nav class="remah" aria-label="Lokasi halaman"><a href="../../">Beranda</a> / <a href="../../properti/">Properti</a> / {e(l['kode'])}</nav>
+    <nav class="remah" aria-label="Lokasi halaman"><a href="{naik}">Beranda</a> / <a href="{naik}properti/">Properti</a> / {e(l['kode'])}</nav>
     <div class="detail-kepala"><div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px"><span class="plakat">{e(l['kode'])}</span><span class="lencana-kartu">{jenis}</span></div>
       <h1 class="judul-1">{e(l.get('judul'))}</h1>
@@ -282,8 +291,8 @@ def bangun_listing(semua):
     </div></div>
   </div>
 </main>'''
-        skrip = '''<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="../../assets/js/listing.js?v=20261117d"></script>'''
+        skrip = f'''<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script type="module" src="{naik}assets/js/listing.js?v=20261117d"></script>'''
         sorot = '''<div class="sorot" id="sorot" role="dialog" aria-modal="true" aria-label="Foto properti">
   <img alt="">
   <button class="tutup" type="button" aria-label="Tutup">×</button>
@@ -291,9 +300,21 @@ def bangun_listing(semua):
   <button class="sesudah" type="button" aria-label="Foto berikutnya">›</button>
   <span class="hitung"></span>
 </div>'''
-        tulis(jalur.lstrip('/'), halaman(judul=f"{l.get('judul')} ({l['kode']}) — Sewain", deskripsi=desk, kanonik=DOMAIN + jalur, kedalaman=2,
+        ld = {
+            '@context': 'https://schema.org', '@type': 'RealEstateListing', 'name': l.get('judul'), 'url': DOMAIN + jalur,
+            'description': ' '.join(l.get('deskripsi') or [])[:500] or desk, 'image': foto[:6],
+            'datePosted': (l.get('dibuat') or '')[:10] or None,
+            'about': {'@type': 'Place', 'name': tempat, 'address': {'@type': 'PostalAddress', 'addressLocality': (l.get('lokasi') or {}).get('area'),
+                      'addressRegion': (l.get('lokasi') or {}).get('kabupaten'), 'addressCountry': 'ID'}},
+            'offers': {'@type': 'Offer', 'priceCurrency': 'IDR', 'price': l.get('harga'),
+                       'availability': 'https://schema.org/InStock' if (l.get('status') or 'tersedia') == 'tersedia' else 'https://schema.org/SoldOut',
+                       'seller': {'@type': 'RealEstateAgent', 'name': 'Sewain Property Agency', 'url': DOMAIN + '/'}} if l.get('harga') else None,
+        }
+        ld = {k: v for k, v in ld.items() if v}
+        ld_html = '<script type="application/ld+json">' + json.dumps(ld, ensure_ascii=False).replace('</', '<\\/') + '</script>\n'
+        tulis(jalur.lstrip('/'), halaman(judul=f"{l.get('judul')} ({l['kode']}) — Sewain", deskripsi=desk, kanonik=DOMAIN + jalur, kedalaman=dalam,
                                           isi=badan + '\n\n' + sorot, skrip=skrip, gambar=foto[0] if foto else None,
-                                          kepala_tambahan='<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">\n',
+                                          kepala_tambahan='<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">\n' + ld_html,
                                           body_attr=f' data-halaman="listing" data-kode="{e(l["kode"])}"'))
         jalur_semua.append((jalur, l.get('diubah') or l.get('dibuat')))
     # Posting ganda di Blogger (DPS-038 terbit dua kali): URL keduanya dipertahankan,
@@ -404,11 +425,17 @@ def bangun_sitemap(artikel, listing):
     return len(url)
 
 if __name__ == '__main__':
-    a = bangun_artikel()
+    # --listing-saja: dipakai GitHub Actions (tanpa arsip Blogger). Artikel tidak
+    # dibangun ulang; daftar artikel untuk sitemap dibaca dari artikel/daftar.json.
+    if '--listing-saja' in sys.argv:
+        a = json.load(open(os.path.join(AKAR, 'artikel', 'daftar.json'), encoding='utf-8'))['artikel']
+    else:
+        a = bangun_artikel()
     print('artikel:', len(a))
     s = ambil_listing()
     l = bangun_listing(s)
-    print('listing di URL lama:', len(l))
-    bangun_halaman_p()
-    print('halaman /p/ selesai')
+    print('halaman listing:', len(l))
+    if '--listing-saja' not in sys.argv:
+        bangun_halaman_p()
+        print('halaman /p/ selesai')
     print('sitemap:', bangun_sitemap(a, l), 'URL')

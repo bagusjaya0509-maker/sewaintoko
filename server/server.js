@@ -340,7 +340,18 @@ function untukPublik(l) {
   // Listing pindahan Blogger tetap memakai URL lamanya (sudah terindeks).
   const m = typeof sumber === 'string' && sumber.match(/^https?:\/\/(?:www\.)?sewatoko\.com(\/\d{4}\/\d{2}\/[a-z0-9_-]+\.html)$/);
   if (m) sisa.halaman = m[1];
+  else sisa.halaman = '/properti/' + slugListing(l) + '.html';
   return sisa;
+}
+
+// Alamat halaman statis listing baru (dibangun alat/bangun-statis.py). Disusun dari
+// data yang jarang berubah (jenis, tipe, area, kode) supaya URL-nya stabil; kalau
+// halamannya belum dibangun, 404.html mengalihkan ke /listing/?kode=.
+function slugListing(l) {
+  const lk = l.lokasi || {};
+  const tempat = lk.area || String(lk.kabupaten || '').replace(/^(Kabupaten|Kota)\s+/, '');
+  return [l.jenis === 'jual' ? 'dijual' : 'disewakan', l.tipe, tempat, l.kode].filter(Boolean).join(' ')
+    .toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
 function saringListing(semua, q) {
