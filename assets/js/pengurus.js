@@ -131,13 +131,14 @@ async function mulai(pengurus) {
     <button class="tombol tombol--kecil" type="button" id="tombol-keluar">Keluar</button>`;
   $('tombol-keluar').onclick = keluar;
   if (saya.wajibGantiSandi) return tampilkan('layar-sandi');
-  $('kelola-akun').hidden = !adminKah();
+  $('kelola-akun').hidden = saya.peran !== 'pemilik';
   $('form-sandi').hidden = !!saya.lewatGoogle;
   $('kelola-pelanggan').hidden = !adminKah();
   $('opsi-pemilik').hidden = $('opsi-pemilik').disabled = saya.peran !== 'pemilik';
   tampilkan('layar-panel');
   await Promise.all([muatListing(), muatJadwal(), muatBahan()]);
-  if (adminKah()) { muatAkun(); muatPelanggan(); }
+  if (saya.peran === 'pemilik') muatAkun();
+  if (adminKah()) muatPelanggan();
 }
 
 // ---------------------------------------------------------------- tab

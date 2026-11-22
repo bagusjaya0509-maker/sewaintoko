@@ -926,12 +926,12 @@ daftar('POST', /^\/api\/pengurus\/sandi$/, async ({ req, ip }) => {
 });
 
 daftar('GET', /^\/api\/pengurus\/akun$/, async ({ req }) => {
-  await wajibPengurus(req, 'admin');
+  await wajibPengurus(req, 'pemilik');
   return { akun: (await baca('pengguna', [])).map(u => ({ email: u.email, nama: u.nama, peran: u.peran, dibuat: u.dibuat, pakaiSandi: !!u.hash })) };
 });
 
 daftar('POST', /^\/api\/pengurus\/akun$/, async ({ req }) => {
-  const saya = await wajibPengurus(req, 'admin');
+  const saya = await wajibPengurus(req, 'pemilik');
   const m = await bacaBadan(req, 4096);
   const email = teks(m.email, 120).toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new GalatPengguna(400, 'Email tidak valid.');
@@ -952,7 +952,7 @@ daftar('POST', /^\/api\/pengurus\/akun$/, async ({ req }) => {
 });
 
 daftar('DELETE', /^\/api\/pengurus\/akun\/(.+)$/, async ({ req, cocok }) => {
-  const saya = await wajibPengurus(req, 'admin');
+  const saya = await wajibPengurus(req, 'pemilik');
   const email = decodeURIComponent(cocok[1]).toLowerCase();
   if (email === saya.email) throw new GalatPengguna(400, 'Anda tidak bisa menghapus akun sendiri.');
   const target = (await baca('pengguna', [])).find(u => u.email === email);
