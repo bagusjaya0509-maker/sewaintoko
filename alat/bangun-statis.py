@@ -280,6 +280,64 @@ def baris_spesifikasi(l):
     b.append(('Status', {'tersedia': 'Tersedia', 'tersewa': 'Sudah tersewa', 'terjual': 'Sudah terjual', 'ditahan': 'Ditahan'}.get(l.get('status') or 'tersedia', 'Tersedia')))
     return [x for x in b if x[1]]
 
+def angka_id(n, desimal=0):
+    t = f"{n:,.{desimal}f}".replace(',', '_').replace('.', ',').replace('_', '.')
+    return t[:-2] if desimal and t.endswith(',0') else t
+
+def ringkasan(l, tempat):
+    """Satu paragraf yang disusun dari data listing itu sendiri (bukan teks umum),
+    supaya tiap halaman punya isi yang berbeda dan berguna."""
+    sp = l.get('spesifikasi') or {}
+    tipe = {'toko': 'toko', 'ruko': 'ruko', 'rumah': 'rumah', 'kontrakan': 'rumah kontrakan', 'gudang': 'gudang', 'tanah': 'tanah',
+            'villa': 'villa', 'kantor': 'ruang kantor'}.get(l.get('tipe'), l.get('tipe') or 'properti')
+    bagian = [f"{l['kode']} adalah {tipe}" + (f" {angka_id(sp['lantai'], 1)} lantai" if sp.get('lantai') else '')
+              + (f" berukuran {sp['dimensi']}" if sp.get('dimensi') else '') + f" di {tempat}"
+              + (' yang ' + ('disewakan' if l.get('jenis') == 'sewa' else 'dijual') + '.')]
+    luas = []
+    if sp.get('luasTanah'): luas.append(f"luas tanah {angka_id(sp['luasTanah'])} m²")
+    if sp.get('luasBangunan'): luas.append(f"luas bangunan {angka_id(sp['luasBangunan'])} m²")
+    if luas: bagian.append('Propertinya memiliki ' + ' dan '.join(luas) + '.')
+    h = l.get('harga')
+    if h and l.get('jenis') == 'sewa' and l.get('periode') == 'tahun':
+        kal = f"Harga sewanya {'mulai ' if l.get('hargaMulai') else ''}{rupiah(h)} per tahun, setara sekitar {rupiah(h / 12)} per bulan"
+        if sp.get('luasBangunan'):
+            kal += f" atau {rupiah(h / sp['luasBangunan'])} per meter persegi bangunan per tahun"
+        bagian.append(kal + '.')
+    elif h and l.get('jenis') == 'jual':
+        kal = f"Harga jualnya {rupiah(h)}"
+        if sp.get('luasTanah'):
+            kal += f", atau sekitar {rupiah(h / sp['luasTanah'])} per meter persegi tanah"
+        bagian.append(kal + '.')
+    elif not h:
+        bagian.append('Harga diberikan agen setelah Anda menyebutkan kebutuhan usaha dan lama sewa.')
+    fas = []
+    if sp.get('kamarTidur'): fas.append(f"{angka_id(sp['kamarTidur'])} kamar tidur")
+    if sp.get('kamarMandi'): fas.append(f"{angka_id(sp['kamarMandi'])} kamar mandi")
+    if sp.get('listrikWatt'): fas.append(f"listrik {angka_id(sp['listrikWatt'])} watt")
+    if sp.get('air'): fas.append('air ' + ' dan '.join(('PDAM' if a in ('PAM', 'PDAM') else a.lower()) for a in sp['air']))
+    if sp.get('parkir'): fas.append('area parkir')
+    if fas: bagian.append('Fasilitasnya: ' + ', '.join(fas) + '.')
+    if sp.get('jalanUtama'): bagian.append('Lokasinya di pinggir jalan utama sehingga mudah dilihat orang yang lewat.')
+    if sp.get('legalitas'): bagian.append('Dokumen yang tercatat: ' + ', '.join(sp['legalitas']) + '.')
+    return ' '.join(bagian)
+
+DAFTAR_CEK = {
+    'sewa': ('Yang perlu dicek sebelum menyewa', [
+        'Lama sewa minimal, cara pembayaran (per tahun atau bertahap), dan besar uang jaminan.',
+        'Daya listrik dan sumber air cukup untuk peralatan usaha Anda, serta siapa yang membayar tagihannya.',
+        'Izin usaha di lokasi: apakah jenis usaha Anda boleh dibuka di bangunan dan lingkungan itu.',
+        'Kondisi atap, lantai, dan saluran air. Catat kerusakan yang ada sebelum serah terima.',
+        'Siapa yang menanggung perbaikan selama masa sewa, dan aturan perpanjangan di akhir kontrak.',
+    ]),
+    'jual': ('Yang perlu dicek sebelum membeli', [
+        'Sertifikat (SHM atau HGB) atas nama penjual dan tidak sedang dijaminkan. Cek ke BPN lewat notaris/PPAT.',
+        'Persetujuan bangunan (IMB/PBG) sesuai dengan bangunan yang berdiri sekarang.',
+        'Bukti lunas PBB beberapa tahun terakhir.',
+        'Akses jalan masuk, lebar jalan, dan status jalan (umum atau milik pribadi).',
+        'Kondisi bangunan: struktur, atap, saluran air, dan instalasi listrik. Untuk rumah baru, tanyakan jadwal serah terima.',
+    ]),
+}
+
 def bangun_listing(semua):
     jalur_semua = []
     siap = [(l, jalur_listing(l)) for l in semua if jalur_listing(l) and l.get('terbit') is not False]
@@ -314,6 +372,8 @@ def bangun_listing(semua):
     </div></div>
   </div>
   <div class="wadah detail-tambahan">
+      <section class="blok"><h2>Ringkasan {e(l['kode'])}</h2><p>{e(ringkasan(l, tempat))}</p></section>
+      <section class="blok"><h2>{DAFTAR_CEK['jual' if l.get('jenis') == 'jual' else 'sewa'][0]}</h2><ul>{''.join(f'<li>{e(x)}</li>' for x in DAFTAR_CEK['jual' if l.get('jenis') == 'jual' else 'sewa'][1])}</ul></section>
       <section class="blok"><h2>Cara survei</h2><p>Jadwalkan survei lewat tombol di halaman ini atau hubungi WhatsApp Sewain dengan menyebutkan kode <b>{e(l['kode'])}</b>. Agen Sewain mendampingi survei, menjelaskan harga, legalitas, dan isi perjanjian sebelum Anda memutuskan.</p></section>
       {('<section class="blok"><h2>Properti lain di ' + e(re.sub(r'^(Kabupaten|Kota)\s+', '', lk.get('kabupaten') or '')) + '</h2><ul>' + ''.join(f'<li><a href="{naik}{x[1].lstrip("/")}">{e(x[0].get("judul"))}</a> ({e(x[0]["kode"])}){" — " + rupiah(x[0].get("harga")) if x[0].get("harga") else ""}</li>' for x in mirip) + '</ul></section>') if mirip else ''}
   </div>
