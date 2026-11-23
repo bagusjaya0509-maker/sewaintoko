@@ -1,5 +1,5 @@
 import { API, esc, fotoKecil, labelHarga, rupiahPenuh, rupiahRingkas, tempat, tipeLabel, namaKab, tampilPesan, AKAR, hrefListing } from './inti.js';
-import * as akunFb from './akun.js?v=20261123a';
+import * as akunFb from './akun.js?v=20261123b';
 
 const WILAYAH = {
   'Bali': ['Kota Denpasar', 'Kabupaten Badung', 'Kabupaten Gianyar', 'Kabupaten Tabanan', 'Kabupaten Klungkung', 'Kabupaten Bangli', 'Kabupaten Karangasem', 'Kabupaten Buleleng', 'Kabupaten Jembrana'],

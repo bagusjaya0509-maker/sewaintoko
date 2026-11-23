@@ -20,7 +20,7 @@ function muatSDK() {
   if (sdk) return sdk;
   sdk = (async () => {
     const [{ initializeApp }, a, { firebaseConfig }] = await Promise.all([
-      import(SDK + 'firebase-app.js'), import(SDK + 'firebase-auth.js'), import('./firebase-config.js'),
+      import(SDK + 'firebase-app.js'), import(SDK + 'firebase-auth.js'), import('./firebase-config.js?v=20261123b'),
     ]);
     fb = a;
     auth = a.getAuth(initializeApp(firebaseConfig));

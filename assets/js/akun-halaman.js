@@ -1,5 +1,5 @@
 import { esc, AKAR, ambilListing, kartuListing, fotoKecil, rupiahRingkas, tampilPesan, hrefListing } from './inti.js';
-import * as akun from './akun.js?v=20261123a';
+import * as akun from './akun.js?v=20261123b';
 
 const isi = document.getElementById('isi');
 const q = new URLSearchParams(location.search);
