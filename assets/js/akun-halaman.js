@@ -1,5 +1,5 @@
 import { esc, AKAR, ambilListing, kartuListing, fotoKecil, rupiahRingkas, tampilPesan, hrefListing } from './inti.js';
-import * as akun from './akun.js';
+import * as akun from './akun.js?v=20261123a';
 
 const isi = document.getElementById('isi');
 const q = new URLSearchParams(location.search);
@@ -35,6 +35,7 @@ function tampilMasuk(mode = 'masuk') {
   const pesan = document.getElementById('pesan-masuk');
   const f = document.getElementById('form-email');
   document.getElementById('ganti-mode').onclick = () => tampilMasuk(daftar ? 'masuk' : 'daftar');
+  akun.siapkanMasuk();
   document.getElementById('masuk-google').onclick = async e => {
     e.target.disabled = true;
     try { await akun.masukGoogle(); } catch (err) { tampilPesan(pesan, 'galat', err.message); } finally { e.target.disabled = false; }

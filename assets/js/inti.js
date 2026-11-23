@@ -321,7 +321,7 @@ document.addEventListener('scroll', e => {
 
 // ---------- status masuk di kepala + tombol favorit di mana pun
 let modAkun = null;
-const akunMod = () => (modAkun ||= import('./akun.js'));
+const akunMod = () => (modAkun ||= import('./akun.js?v=20261123a'));
 
 function tandaiFavorit(set) {
   // Hanya tulis bila nilainya berubah: menulis ulang teks tombol memicu

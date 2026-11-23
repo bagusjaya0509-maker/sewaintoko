@@ -1,5 +1,5 @@
 import { esc, AKAR, tampilPesan, rupiahPenuh } from './inti.js';
-import * as akun from './akun.js';
+import * as akun from './akun.js?v=20261123a';
 
 const isi = document.getElementById('isi');
 const WILAYAH = {

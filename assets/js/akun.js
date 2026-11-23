@@ -6,22 +6,38 @@ import { API } from './inti.js';
 
 const SDK = 'https://www.gstatic.com/firebasejs/11.0.2/';
 const PENANDA = 'sewain.masuk';
-let siap = null, auth = null, fb = null;
+let siap = null, auth = null, fb = null, sdk = null;
 const pendengar = new Set();
 let penggunaKini = null, profilKini = null;
 
 const tandai = ada => { try { ada ? localStorage.setItem(PENANDA, '1') : localStorage.removeItem(PENANDA); } catch (_) {} };
 export const pernahMasuk = () => { try { return localStorage.getItem(PENANDA) === '1'; } catch (_) { return false; } };
 
-export function muatAuth() {
-  if (siap) return siap;
-  siap = (async () => {
+// SDK + objek auth saja (tanpa menunggu status masuk). Dipisah supaya tombol
+// "Masuk dengan Google" bisa membuka jendela Google LANGSUNG di dalam ketukan:
+// Safari iPhone memblokir pop-up yang dibuka sesudah ada `await` jaringan.
+function muatSDK() {
+  if (sdk) return sdk;
+  sdk = (async () => {
     const [{ initializeApp }, a, { firebaseConfig }] = await Promise.all([
       import(SDK + 'firebase-app.js'), import(SDK + 'firebase-auth.js'), import('./firebase-config.js'),
     ]);
     fb = a;
     auth = a.getAuth(initializeApp(firebaseConfig));
     auth.languageCode = 'id';
+    return auth;
+  })();
+  sdk.catch(() => { sdk = null; });
+  return sdk;
+}
+
+/** Panggil saat halaman/formulir masuk tampil supaya SDK sudah siap ketika tombol Google diketuk. */
+export const siapkanMasuk = () => { muatSDK().catch(() => {}); };
+
+export function muatAuth() {
+  if (siap) return siap;
+  siap = (async () => {
+    const a = await muatSDK().then(() => fb);
     await new Promise(ok => {
       let pertama = true;
       a.onAuthStateChanged(auth, async u => {
@@ -64,11 +80,28 @@ const PESAN_GALAT = {
 };
 const terjemah = e => new Error(PESAN_GALAT[e && e.code] || (e && e.message) || 'Gagal masuk.');
 
-export async function masukGoogle() {
-  await muatAuth();
-  const p = new fb.GoogleAuthProvider();
-  p.setCustomParameters({ prompt: 'select_account' });
-  try { return (await fb.signInWithPopup(auth, p)).user; } catch (e) { throw terjemah(e); }
+export function masukGoogle() {
+  // JANGAN ada `await` sebelum signInWithPopup: jendela harus dibuka di dalam
+  // ketukan pengguna, kalau tidak Safari iPhone memblokirnya sebagai pop-up.
+  if (fb && auth) {
+    const p = new fb.GoogleAuthProvider();
+    p.setCustomParameters({ prompt: 'select_account' });
+    const jalan = fb.signInWithPopup(auth, p);
+    muatAuth();
+    return jalan.then(r => r.user, e => { throw terjemah(e); });
+  }
+  // SDK belum siap (jaringan lambat): siapkan, lalu minta pengguna mengetuk lagi.
+  // Di komputer pop-up sesudah jeda singkat masih diizinkan; kalau diblokir
+  // (Safari iPhone), SDK sudah siap sehingga ketukan berikutnya pasti berhasil.
+  return muatSDK().then(() => {
+    const p = new fb.GoogleAuthProvider();
+    p.setCustomParameters({ prompt: 'select_account' });
+    muatAuth();
+    return fb.signInWithPopup(auth, p);
+  }).then(r => r.user, e => {
+    if (e && e.code === 'auth/popup-blocked') throw new Error('Jendela Google belum sempat terbuka. Ketuk "Masuk dengan Google" sekali lagi.');
+    throw terjemah(e);
+  });
 }
 
 export async function masukEmail(email, sandi) {
